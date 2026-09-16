@@ -1,0 +1,27 @@
+{
+  "name": "halogen-web",
+  "main": "src/index.js",
+  "compatibility_date": "2026-09-01",
+  "assets": {
+    "directory": "./public",
+    "binding": "ASSETS"
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "halogen-db",
+      "database_id": "PLACEHOLDER_WIRD_NACH_DB_ERSTELLUNG_EINGETRAGEN"
+    }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "BUCKET",
+      "bucket_name": "halogen-media"
+    }
+  ],
+  "vars": {
+    "ADMIN_USER": "admin"
+  }
+  // ADMIN_PASS wird NICHT hier eingetragen, sondern als Secret gesetzt:
+  // npx wrangler secret put ADMIN_PASS
+}
