@@ -54,6 +54,43 @@ export default {
       return json({ ok: true, key, url: `/media/${key}` });
     }
 
+    // --- Multipart-Upload für schwere Dateien (umgeht das ~100MB-Request-Limit) ---
+    if (url.pathname === "/api/admin/upload/create" && request.method === "POST") {
+      const { filename, contentType } = await request.json();
+      if (!filename) return json({ error: "kein Dateiname" }, 400);
+      const key = `${Date.now()}-${filename}`;
+      const upload = await env.BUCKET.createMultipartUpload(key, {
+        httpMetadata: { contentType: contentType || "application/octet-stream" },
+      });
+      return json({ key: upload.key, uploadId: upload.uploadId });
+    }
+
+    if (url.pathname === "/api/admin/upload/part" && request.method === "PUT") {
+      const key = url.searchParams.get("key");
+      const uploadId = url.searchParams.get("uploadId");
+      const partNumber = parseInt(url.searchParams.get("partNumber"), 10);
+      if (!key || !uploadId || !partNumber) return json({ error: "fehlende Parameter" }, 400);
+      const upload = env.BUCKET.resumeMultipartUpload(key, uploadId);
+      const part = await upload.uploadPart(partNumber, request.body);
+      return json({ etag: part.etag, partNumber });
+    }
+
+    if (url.pathname === "/api/admin/upload/complete" && request.method === "POST") {
+      const { key, uploadId, parts } = await request.json();
+      if (!key || !uploadId || !parts?.length) return json({ error: "fehlende Parameter" }, 400);
+      const upload = env.BUCKET.resumeMultipartUpload(key, uploadId);
+      await upload.complete(parts);
+      return json({ ok: true, key, url: `/media/${key}` });
+    }
+
+    if (url.pathname === "/api/admin/upload/abort" && request.method === "POST") {
+      const { key, uploadId } = await request.json();
+      if (!key || !uploadId) return json({ error: "fehlende Parameter" }, 400);
+      const upload = env.BUCKET.resumeMultipartUpload(key, uploadId);
+      await upload.abort();
+      return json({ ok: true });
+    }
+
     if (url.pathname.startsWith("/media/") && request.method === "GET") {
       const key = url.pathname.replace("/media/", "");
       const object = await env.BUCKET.get(key);

@@ -56,6 +56,58 @@
 
 <script>
 const PAGE_SLUGS = ["programm", "anmeldung", "produkte", "weiteres"];
+const CHUNK_SIZE = 8 * 1024 * 1024; // 8MB pro Chunk
+
+// Lädt eine Datei hoch. Kleine Dateien gehen in einem Request raus,
+// größere werden in Chunks zerlegt (Multipart-Upload über R2), damit
+// weder das Worker-Request-Limit noch der Arbeitsspeicher ein Problem sind.
+async function uploadFile(file, onProgress) {
+  if (file.size <= CHUNK_SIZE) {
+    const formData = new FormData();
+    formData.append("file", file);
+    const res = await fetch("/api/admin/upload", { method: "POST", body: formData }).then(r => r.json());
+    onProgress && onProgress(1);
+    return res.url;
+  }
+
+  const { key, uploadId } = await fetch("/api/admin/upload/create", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ filename: file.name, contentType: file.type || "application/octet-stream" }),
+  }).then(r => r.json());
+
+  const totalParts = Math.ceil(file.size / CHUNK_SIZE);
+  const parts = [];
+
+  try {
+    for (let i = 0; i < totalParts; i++) {
+      const start = i * CHUNK_SIZE;
+      const chunk = file.slice(start, Math.min(start + CHUNK_SIZE, file.size));
+      const partNumber = i + 1;
+      const part = await fetch(
+        `/api/admin/upload/part?key=${encodeURIComponent(key)}&uploadId=${encodeURIComponent(uploadId)}&partNumber=${partNumber}`,
+        { method: "PUT", body: chunk }
+      ).then(r => r.json());
+      parts.push({ partNumber, etag: part.etag });
+      onProgress && onProgress((i + 1) / totalParts);
+    }
+
+    const done = await fetch("/api/admin/upload/complete", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ key, uploadId, parts }),
+    }).then(r => r.json());
+
+    return done.url;
+  } catch (err) {
+    await fetch("/api/admin/upload/abort", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ key, uploadId }),
+    }).catch(() => {});
+    throw err;
+  }
+}
 
 async function loadContent() {
   const content = await fetch("/api/content").then(r => r.json());
@@ -83,17 +135,21 @@ async function loadContent() {
       const file = e.target.files[0];
       if (!file) return;
       const status = document.getElementById(`panel_${i}_img_status`);
-      status.textContent = "Lädt hoch...";
-      const formData = new FormData();
-      formData.append("file", file);
-      const res = await fetch("/api/admin/upload", { method: "POST", body: formData }).then(r => r.json());
-      await fetch("/api/admin/content", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ [`panel_${i}_image_url`]: res.url }),
-      });
-      document.getElementById(`panel_${i}_preview`).src = res.url;
-      status.textContent = "Gespeichert ✓";
+      try {
+        const url = await uploadFile(file, (p) => {
+          status.textContent = `Lädt hoch... ${Math.round(p * 100)}%`;
+        });
+        await fetch("/api/admin/content", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ [`panel_${i}_image_url`]: url }),
+        });
+        document.getElementById(`panel_${i}_preview`).src = url;
+        status.textContent = "Gespeichert ✓";
+      } catch (err) {
+        status.textContent = "Fehler beim Hochladen";
+        console.error(err);
+      }
       setTimeout(() => status.textContent = "", 2000);
     });
   }
@@ -135,17 +191,23 @@ async function loadPages() {
 document.getElementById("hero-upload-btn").addEventListener("click", async () => {
   const fileInput = document.getElementById("hero-file");
   if (!fileInput.files[0]) return;
-  const formData = new FormData();
-  formData.append("file", fileInput.files[0]);
-  const res = await fetch("/api/admin/upload", { method: "POST", body: formData }).then(r => r.json());
-  await fetch("/api/admin/content", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ hero_image_url: res.url }),
-  });
-  document.getElementById("hero-status").textContent = "Gespeichert ✓";
-  document.getElementById("hero-preview").src = res.url;
-  setTimeout(() => document.getElementById("hero-status").textContent = "", 2000);
+  const status = document.getElementById("hero-status");
+  try {
+    const url = await uploadFile(fileInput.files[0], (p) => {
+      status.textContent = `Lädt hoch... ${Math.round(p * 100)}%`;
+    });
+    await fetch("/api/admin/content", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ hero_image_url: url }),
+    });
+    status.textContent = "Gespeichert ✓";
+    document.getElementById("hero-preview").src = url;
+  } catch (err) {
+    status.textContent = "Fehler beim Hochladen";
+    console.error(err);
+  }
+  setTimeout(() => status.textContent = "", 2000);
 });
 
 document.getElementById("save-panels-btn").addEventListener("click", async () => {
@@ -167,14 +229,18 @@ document.getElementById("generic-upload-btn").addEventListener("click", async ()
   const fileInput = document.getElementById("generic-file");
   if (!fileInput.files[0]) return;
   const status = document.getElementById("generic-status");
-  status.textContent = "Lädt hoch...";
-  const formData = new FormData();
-  formData.append("file", fileInput.files[0]);
-  const res = await fetch("/api/admin/upload", { method: "POST", body: formData }).then(r => r.json());
-  status.textContent = "Hochgeladen ✓";
-  document.getElementById("generic-result").innerHTML =
-    `<a href="${res.url}" target="_blank" style="color:#ffb703;">${res.url}</a> ` +
-    `<button type="button" class="copy-link-btn" data-url="${res.url}">Link kopieren</button>`;
+  try {
+    const url = await uploadFile(fileInput.files[0], (p) => {
+      status.textContent = `Lädt hoch... ${Math.round(p * 100)}%`;
+    });
+    status.textContent = "Hochgeladen ✓";
+    document.getElementById("generic-result").innerHTML =
+      `<a href="${url}" target="_blank" style="color:#ffb703;">${url}</a> ` +
+      `<button type="button" class="copy-link-btn" data-url="${url}">Link kopieren</button>`;
+  } catch (err) {
+    status.textContent = "Fehler beim Hochladen";
+    console.error(err);
+  }
   setTimeout(() => status.textContent = "", 2000);
 });
 
