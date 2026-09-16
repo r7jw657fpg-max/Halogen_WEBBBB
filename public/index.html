@@ -265,6 +265,11 @@
   function zoomIntoPanel(el, link) {
     const rect = el.getBoundingClientRect();
     const clone = el.cloneNode(true);
+    // Die Bounce-Animation setzt auf dem Original ein inline transform
+    // (translate(x,y)); cloneNode kopiert das mit. Ohne es zu löschen,
+    // würde sich der Klon zusätzlich zu left/top um denselben Betrag
+    // verschieben und immer aus der falschen Ecke "reinzoomen".
+    clone.style.transform = "none";
     clone.style.position = "fixed";
     clone.style.left = rect.left + "px";
     clone.style.top = rect.top + "px";
