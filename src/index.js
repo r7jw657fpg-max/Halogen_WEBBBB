@@ -68,7 +68,7 @@ export default {
       const formData = await request.formData();
       const file = formData.get("file");
       if (!file) return json({ error: "keine Datei" }, 400);
-      const key = `${Date.now()}-${file.name}`;
+      const key = `${Date.now()}-${sanitizeFilename(file.name)}`;
       await env.BUCKET.put(key, file.stream(), {
         httpMetadata: { contentType: file.type },
       });
@@ -80,7 +80,7 @@ export default {
     if (url.pathname === "/api/admin/upload/create" && request.method === "POST") {
       const { filename, contentType } = await request.json();
       if (!filename) return json({ error: "kein Dateiname" }, 400);
-      const key = `${Date.now()}-${filename}`;
+      const key = `${Date.now()}-${sanitizeFilename(filename)}`;
       const upload = await env.BUCKET.createMultipartUpload(key, {
         httpMetadata: { contentType: contentType || "application/octet-stream" },
       });
@@ -127,6 +127,18 @@ export default {
     return env.ASSETS.fetch(request);
   },
 };
+
+// Macht Dateinamen URL- und CSS-url()-sicher: Leerzeichen, Klammern, Umlaute
+// & Co. haben schon Hero-Bilder unsichtbar gemacht (kaputtes CSS url(...)
+// bzw. Mismatch zwischen gespeichertem Key und angefragtem Pfad).
+function sanitizeFilename(name) {
+  const cleaned = name
+    .normalize("NFKD")
+    .replace(/[^\w.-]+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^[-.]+|[-.]+$/g, "");
+  return cleaned || "datei";
+}
 
 function checkBasicAuth(request, env) {
   const auth = request.headers.get("Authorization");

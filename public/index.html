@@ -248,7 +248,7 @@
   }
 
   if (content.hero_image_url) {
-    hero.style.backgroundImage = `url(${content.hero_image_url})`;
+    hero.style.backgroundImage = `url("${content.hero_image_url}")`;
   }
 
   const panelDefs = [1, 2, 3, 4].map(i => ({
@@ -292,7 +292,7 @@
     el.className = "panel";
     if (def.image) {
       el.classList.add("has-image");
-      el.style.backgroundImage = `url(${def.image})`;
+      el.style.backgroundImage = `url("${def.image}")`;
     }
     const labelSpan = document.createElement("span");
     labelSpan.className = "panel-label";

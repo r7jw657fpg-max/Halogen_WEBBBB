@@ -39,7 +39,7 @@ fetch("/api/pages/produkte")
     document.getElementById("page-title").textContent = data.title || "Produkte";
     document.getElementById("page-content").innerHTML = data.content || "";
     if (data.image_url) {
-      document.getElementById("bg-overlay").style.backgroundImage = `url(${data.image_url})`;
+      document.getElementById("bg-overlay").style.backgroundImage = `url("${data.image_url}")`;
     }
   })
   .catch(() => {});

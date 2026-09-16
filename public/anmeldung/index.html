@@ -80,7 +80,7 @@ fetch("/api/pages/anmeldung")
     document.getElementById("page-title").textContent = data.title || "Anmeldung";
     document.getElementById("page-content").innerHTML = data.content || "";
     if (data.image_url) {
-      document.getElementById("bg-overlay").style.backgroundImage = `url(${data.image_url})`;
+      document.getElementById("bg-overlay").style.backgroundImage = `url("${data.image_url}")`;
     }
   })
   .catch(() => {});

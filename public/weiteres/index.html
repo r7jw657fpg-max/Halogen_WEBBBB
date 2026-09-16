@@ -39,7 +39,7 @@ fetch("/api/pages/weiteres")
     document.getElementById("page-title").textContent = data.title || "Weiteres";
     document.getElementById("page-content").innerHTML = data.content || "";
     if (data.image_url) {
-      document.getElementById("bg-overlay").style.backgroundImage = `url(${data.image_url})`;
+      document.getElementById("bg-overlay").style.backgroundImage = `url("${data.image_url}")`;
     }
   })
   .catch(() => {});
