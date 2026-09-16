@@ -62,7 +62,31 @@ async function loadContent() {
         <input type="text" id="panel_${i}_label" value="${content[`panel_${i}_label`] || ""}">
         <label>Panel ${i} – Link</label>
         <input type="text" id="panel_${i}_link" value="${content[`panel_${i}_link`] || ""}">
+        <label>Panel ${i} – Bild</label>
+        <input type="file" id="panel_${i}_file" accept="image/*">
+        <span class="status" id="panel_${i}_img_status"></span>
+        <img class="preview" id="panel_${i}_preview" src="${content[`panel_${i}_image_url`] || ""}">
       </div>`;
+  }
+
+  for (let i = 1; i <= 4; i++) {
+    document.getElementById(`panel_${i}_file`).addEventListener("change", async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const status = document.getElementById(`panel_${i}_img_status`);
+      status.textContent = "Lädt hoch...";
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await fetch("/api/admin/upload", { method: "POST", body: formData }).then(r => r.json());
+      await fetch("/api/admin/content", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ [`panel_${i}_image_url`]: res.url }),
+      });
+      document.getElementById(`panel_${i}_preview`).src = res.url;
+      status.textContent = "Gespeichert ✓";
+      setTimeout(() => status.textContent = "", 2000);
+    });
   }
 }
 

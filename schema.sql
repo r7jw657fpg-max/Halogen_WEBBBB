@@ -22,7 +22,11 @@ INSERT OR IGNORE INTO site_content (key, value) VALUES
   ('panel_3_label', 'Produkte'),
   ('panel_3_link', '/produkte/'),
   ('panel_4_label', 'Weiteres'),
-  ('panel_4_link', '/weiteres/');
+  ('panel_4_link', '/weiteres/'),
+  ('panel_1_image_url', ''),
+  ('panel_2_image_url', ''),
+  ('panel_3_image_url', ''),
+  ('panel_4_image_url', '');
 
 INSERT OR IGNORE INTO pages (slug, title, content) VALUES
   ('programm', 'Programm', '<p>Hier steht bald das Programm.</p>'),

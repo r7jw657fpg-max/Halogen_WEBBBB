@@ -48,26 +48,43 @@
     height: 190px;
     border-radius: 16px;
     background: var(--panel-bg);
+    background-size: cover;
+    background-position: center;
     color: var(--panel-fg);
     display: flex;
     align-items: center;
     justify-content: center;
     text-align: center;
+    cursor: pointer;
+    border: 1px solid rgba(255,255,255,0.15);
+    backdrop-filter: blur(2px);
+    transition: background 0.2s ease, filter 0.15s ease;
+    will-change: transform;
+    z-index: 3;
+    user-select: none;
+    overflow: hidden;
+  }
+  .panel:not(.has-image):hover {
+    background: var(--accent);
+    color: #111;
+  }
+  .panel.has-image:hover {
+    filter: brightness(1.15);
+  }
+  .panel.has-image::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(180deg, rgba(0,0,0,0.1), rgba(0,0,0,0.6));
+  }
+  .panel-label {
+    position: relative;
+    z-index: 1;
     font-size: 1.1rem;
     font-weight: 600;
     letter-spacing: 0.03em;
     text-transform: uppercase;
-    cursor: pointer;
-    border: 1px solid rgba(255,255,255,0.15);
-    backdrop-filter: blur(2px);
-    transition: background 0.2s ease, transform 0.15s ease;
-    will-change: transform;
-    z-index: 3;
-    user-select: none;
-  }
-  .panel:hover {
-    background: var(--accent);
-    color: #111;
+    padding: 0 12px;
   }
 </style>
 </head>
@@ -95,6 +112,7 @@
   const panelDefs = [1, 2, 3, 4].map(i => ({
     label: content[`panel_${i}_label`] || `Panel ${i}`,
     link: content[`panel_${i}_link`] || "#",
+    image: content[`panel_${i}_image_url`] || "",
   }));
 
   const SIZE = 190;
@@ -103,7 +121,14 @@
   const panels = panelDefs.map((def, i) => {
     const el = document.createElement("div");
     el.className = "panel";
-    el.textContent = def.label;
+    if (def.image) {
+      el.classList.add("has-image");
+      el.style.backgroundImage = `url(${def.image})`;
+    }
+    const labelSpan = document.createElement("span");
+    labelSpan.className = "panel-label";
+    labelSpan.textContent = def.label;
+    el.appendChild(labelSpan);
     el.addEventListener("click", () => { window.location.href = def.link; });
     container.appendChild(el);
 

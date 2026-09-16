@@ -4,13 +4,14 @@
   "compatibility_date": "2026-09-01",
   "assets": {
     "directory": "./public",
-    "binding": "ASSETS"
+    "binding": "ASSETS",
+    "run_worker_first": ["/admin/*", "/api/*"]
   },
   "d1_databases": [
     {
       "binding": "DB",
       "database_name": "halogen-db",
-      "database_id": "PLACEHOLDER_WIRD_NACH_DB_ERSTELLUNG_EINGETRAGEN"
+      "database_id": "cd9e095e-b708-4b91-a4ee-16decee3c3da"
     }
   ],
   "r2_buckets": [
