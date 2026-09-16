@@ -86,12 +86,107 @@
     text-transform: uppercase;
     padding: 0 12px;
   }
+
+  #tube-fixture {
+    position: fixed;
+    top: 18px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: min(360px, 70vw);
+    height: 14px;
+    z-index: 20;
+    pointer-events: none;
+  }
+  #tube-glow {
+    position: absolute;
+    inset: -40px -20px auto -20px;
+    height: 90px;
+    background: radial-gradient(ellipse at center, rgba(226,240,255,0.55), rgba(226,240,255,0) 70%);
+    opacity: 0;
+    filter: blur(2px);
+  }
+  #tube-light {
+    position: absolute;
+    inset: 0;
+    border-radius: 999px;
+    background: linear-gradient(180deg, #ffffff, #dce9ff);
+    box-shadow: 0 0 8px 2px rgba(220,233,255,0.9), 0 0 24px 6px rgba(180,210,255,0.5);
+    opacity: 0;
+  }
+  #tube-light::before, #tube-light::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 6px;
+    height: 20px;
+    background: #333;
+    border-radius: 2px;
+  }
+  #tube-light::before { left: -8px; }
+  #tube-light::after { right: -8px; }
+
+  #dark-overlay {
+    position: fixed;
+    inset: 0;
+    background: #000;
+    z-index: 15;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: opacity 1.2s ease;
+  }
+  #dark-overlay.hidden {
+    opacity: 0;
+    pointer-events: none;
+  }
+  #dark-message {
+    text-align: center;
+    color: #e8e8e8;
+    animation: dark-blink 1.8s ease-in-out infinite;
+    transition: opacity 0.3s ease;
+  }
+  #dark-overlay.revealing #dark-message {
+    animation: none;
+    opacity: 0;
+  }
+  #dark-message .line1 {
+    display: block;
+    font-size: 1.3rem;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    margin-bottom: 10px;
+  }
+  #dark-message .line2 {
+    display: block;
+    font-size: 0.85rem;
+    letter-spacing: 0.08em;
+    color: #999;
+    text-transform: uppercase;
+  }
+  @keyframes dark-blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.25; }
+  }
 </style>
 </head>
 <body>
   <div id="hero"></div>
   <div id="wordmark">Kulturverein Halogen</div>
   <div id="panel-container"></div>
+
+  <div id="tube-fixture">
+    <div id="tube-glow"></div>
+    <div id="tube-light"></div>
+  </div>
+
+  <div id="dark-overlay">
+    <div id="dark-message">
+      <span class="line1">Zu dunkel hier drin.</span>
+      <span class="line2">Klicken, um Licht zu machen.</span>
+    </div>
+  </div>
 
 <script>
 (async function () {
@@ -175,6 +270,43 @@
     requestAnimationFrame(step);
   }
   requestAnimationFrame(step);
+})();
+</script>
+
+<script>
+(function () {
+  const overlay = document.getElementById("dark-overlay");
+  const tubeLight = document.getElementById("tube-light");
+  const tubeGlow = document.getElementById("tube-glow");
+  let started = false;
+
+  function playFlicker() {
+    // [Verzögerung in ms, Helligkeit 0-1] – simuliert eine Röhre, die
+    // erst ein paar Mal ansetzt, bevor sie stabil an bleibt.
+    const steps = [
+      [40, 0.9], [70, 0], [900, 0],
+      [30, 0.8], [40, 0], [25, 0.7], [200, 0],
+      [20, 1], [15, 0], [15, 1], [10, 0], [15, 1], [10, 0], [180, 0],
+      [15, 1], [15, 0], [500, 1],
+    ];
+    let t = 0;
+    for (const [delay, brightness] of steps) {
+      t += delay;
+      setTimeout(() => {
+        tubeLight.style.opacity = brightness;
+        tubeGlow.style.opacity = brightness * 0.8;
+      }, t);
+    }
+    setTimeout(() => overlay.classList.add("hidden"), t + 500);
+  }
+
+  overlay.addEventListener("click", () => {
+    if (started) return;
+    started = true;
+    overlay.classList.add("revealing");
+    overlay.style.pointerEvents = "none";
+    playFlicker();
+  });
 })();
 </script>
 </body>

@@ -43,6 +43,15 @@
     <div id="pages-editor"></div>
   </section>
 
+  <section>
+    <h2>Dateien (PDF, Bilder, etc.)</h2>
+    <p style="font-size:0.85rem; color:#999; margin-top:0;">Datei hochladen, dann den Link in den HTML-Inhalt einer Unterseite einfügen, z. B. <code>&lt;a href="LINK"&gt;Programm als PDF&lt;/a&gt;</code>.</p>
+    <input type="file" id="generic-file">
+    <button id="generic-upload-btn">Hochladen</button>
+    <span class="status" id="generic-status"></span>
+    <div id="generic-result" style="margin-top:10px; word-break:break-all;"></div>
+  </section>
+
 </main>
 
 <script>
@@ -152,6 +161,30 @@ document.getElementById("save-panels-btn").addEventListener("click", async () =>
   });
   document.getElementById("panels-status").textContent = "Gespeichert ✓";
   setTimeout(() => document.getElementById("panels-status").textContent = "", 2000);
+});
+
+document.getElementById("generic-upload-btn").addEventListener("click", async () => {
+  const fileInput = document.getElementById("generic-file");
+  if (!fileInput.files[0]) return;
+  const status = document.getElementById("generic-status");
+  status.textContent = "Lädt hoch...";
+  const formData = new FormData();
+  formData.append("file", fileInput.files[0]);
+  const res = await fetch("/api/admin/upload", { method: "POST", body: formData }).then(r => r.json());
+  status.textContent = "Hochgeladen ✓";
+  document.getElementById("generic-result").innerHTML =
+    `<a href="${res.url}" target="_blank" style="color:#ffb703;">${res.url}</a> ` +
+    `<button type="button" class="copy-link-btn" data-url="${res.url}">Link kopieren</button>`;
+  setTimeout(() => status.textContent = "", 2000);
+});
+
+document.addEventListener("click", (e) => {
+  if (e.target.classList.contains("copy-link-btn")) {
+    navigator.clipboard.writeText(e.target.dataset.url).then(() => {
+      e.target.textContent = "Kopiert ✓";
+      setTimeout(() => e.target.textContent = "Link kopieren", 1500);
+    });
+  }
 });
 
 loadContent();
