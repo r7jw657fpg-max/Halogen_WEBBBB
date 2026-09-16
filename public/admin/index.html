@@ -53,10 +53,19 @@
     <div id="generic-result" style="margin-top:10px; word-break:break-all;"></div>
   </section>
 
+  <section>
+    <h2>Anmeldungen (Mitglieder)</h2>
+    <button type="button" id="reload-memberships-btn">Aktualisieren</button>
+    <button type="button" id="csv-download-btn">Als CSV herunterladen</button>
+    <span class="status" id="memberships-status"></span>
+    <div id="memberships-table-wrap" style="margin-top:14px; overflow-x:auto;"></div>
+  </section>
+
 </main>
 
 <script>
 const PAGE_SLUGS = ["programm", "anmeldung", "produkte", "weiteres"];
+const PAGE_TO_PANEL = { programm: 1, anmeldung: 2, produkte: 3, weiteres: 4 };
 const CHUNK_SIZE = 8 * 1024 * 1024; // 8MB pro Chunk
 
 // iPhone-Fotos kommen oft als HEIC/HEIF – das kann außer Safari kaum ein
@@ -181,8 +190,14 @@ async function loadContent() {
 async function loadPages() {
   const editor = document.getElementById("pages-editor");
   editor.innerHTML = "";
+  const siteContent = await fetch("/api/content").then(r => r.json());
+  const pageImageUrls = {};
+
   for (const slug of PAGE_SLUGS) {
     const data = await fetch(`/api/pages/${slug}`).then(r => r.json());
+    pageImageUrls[slug] = data.image_url || "";
+    const panelImageUrl = siteContent[`panel_${PAGE_TO_PANEL[slug]}_image_url`] || "";
+
     const wrap = document.createElement("div");
     wrap.style.marginBottom = "24px";
     wrap.innerHTML = `
@@ -190,11 +205,49 @@ async function loadPages() {
       <input type="text" id="title_${slug}" value="${data.title || ""}">
       <label>${slug} – Inhalt (HTML erlaubt)</label>
       <textarea id="content_${slug}">${data.content || ""}</textarea>
+      <label>${slug} – Hintergrundbild</label>
+      <input type="file" id="bgimg_${slug}" accept="image/*">
+      <button type="button" class="use-panel-image-btn" data-slug="${slug}" ${panelImageUrl ? "" : "disabled"}>Gleiches Bild wie Panel verwenden</button>
+      <span class="status" id="bgimg_status_${slug}"></span>
+      <img class="preview" id="bgimg_preview_${slug}" src="${pageImageUrls[slug]}">
       <button data-slug="${slug}" class="save-page-btn">Speichern</button>
       <span class="status" id="status_${slug}"></span>
     `;
     editor.appendChild(wrap);
   }
+
+  for (const slug of PAGE_SLUGS) {
+    document.getElementById(`bgimg_${slug}`).addEventListener("change", async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const status = document.getElementById(`bgimg_status_${slug}`);
+      try {
+        const url = await uploadFile(
+          file,
+          (p) => { status.textContent = `Lädt hoch... ${Math.round(p * 100)}%`; },
+          (msg) => { status.textContent = msg; }
+        );
+        pageImageUrls[slug] = url;
+        document.getElementById(`bgimg_preview_${slug}`).src = url;
+        status.textContent = "Bild bereit – bitte unten Speichern klicken";
+      } catch (err) {
+        status.textContent = "Fehler: " + (err.message || "Upload fehlgeschlagen");
+        console.error(err);
+      }
+    });
+  }
+
+  document.querySelectorAll(".use-panel-image-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const slug = btn.dataset.slug;
+      const panelImageUrl = siteContent[`panel_${PAGE_TO_PANEL[slug]}_image_url`] || "";
+      if (!panelImageUrl) return;
+      pageImageUrls[slug] = panelImageUrl;
+      document.getElementById(`bgimg_preview_${slug}`).src = panelImageUrl;
+      document.getElementById(`bgimg_status_${slug}`).textContent = "Bild übernommen – bitte unten Speichern klicken";
+    });
+  });
+
   document.querySelectorAll(".save-page-btn").forEach(btn => {
     btn.addEventListener("click", async () => {
       const slug = btn.dataset.slug;
@@ -205,9 +258,10 @@ async function loadPages() {
         const res = await fetch(`/api/admin/pages/${slug}`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ title, content }),
+          body: JSON.stringify({ title, content, image_url: pageImageUrls[slug] || "" }),
         });
         if (!res.ok) throw new Error(`Server antwortete mit ${res.status}`);
+        document.getElementById(`bgimg_status_${slug}`).textContent = "";
         status.textContent = "Gespeichert ✓";
       } catch (err) {
         status.textContent = "Fehler: " + (err.message || "Speichern fehlgeschlagen");
@@ -217,6 +271,78 @@ async function loadPages() {
     });
   });
 }
+
+let membershipsCache = [];
+
+function escapeHtml(str) {
+  return String(str).replace(/[&<>"']/g, (c) => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+  }[c]));
+}
+
+async function loadMemberships() {
+  const status = document.getElementById("memberships-status");
+  const wrap = document.getElementById("memberships-table-wrap");
+  status.textContent = "Lädt...";
+  try {
+    const rows = await fetch("/api/admin/memberships").then(r => r.json());
+    membershipsCache = rows;
+    if (!rows.length) {
+      wrap.innerHTML = "<p style='color:#999;'>Noch keine Anmeldungen.</p>";
+    } else {
+      wrap.innerHTML = `
+        <table style="width:100%; border-collapse:collapse; font-size:0.9rem;">
+          <thead>
+            <tr style="text-align:left; border-bottom:1px solid #444;">
+              <th style="padding:6px;">Name</th>
+              <th style="padding:6px;">E-Mail</th>
+              <th style="padding:6px;">Mitglied seit</th>
+              <th style="padding:6px;">Angemeldet am</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rows.map(r => `
+              <tr style="border-bottom:1px solid #333;">
+                <td style="padding:6px;">${escapeHtml(r.name)}</td>
+                <td style="padding:6px;">${escapeHtml(r.email)}</td>
+                <td style="padding:6px;">${escapeHtml(r.joined_date)}</td>
+                <td style="padding:6px;">${escapeHtml(r.created_at)}</td>
+              </tr>`).join("")}
+          </tbody>
+        </table>`;
+    }
+    status.textContent = `${rows.length} Anmeldung(en)`;
+  } catch (err) {
+    status.textContent = "Fehler beim Laden";
+    console.error(err);
+  }
+}
+
+document.getElementById("reload-memberships-btn").addEventListener("click", loadMemberships);
+
+document.getElementById("csv-download-btn").addEventListener("click", () => {
+  if (!membershipsCache.length) return;
+  const escapeCsv = (str) => {
+    let s = String(str);
+    // Schutz gegen CSV/Formel-Injection: Felder, die wie eine Excel-Formel
+    // aussehen (=, +, -, @ am Anfang), werden entschärft.
+    if (/^[=+\-@]/.test(s)) s = "'" + s;
+    return `"${s.replace(/"/g, '""')}"`;
+  };
+  const header = ["Name", "E-Mail", "Mitglied seit", "Angemeldet am"];
+  const lines = [header.join(",")];
+  for (const r of membershipsCache) {
+    lines.push([r.name, r.email, r.joined_date, r.created_at].map(escapeCsv).join(","));
+  }
+  const csv = lines.join("\r\n");
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "halogen-mitglieder.csv";
+  a.click();
+  URL.revokeObjectURL(url);
+});
 
 document.getElementById("hero-upload-btn").addEventListener("click", async () => {
   const fileInput = document.getElementById("hero-file");
@@ -287,6 +413,7 @@ document.addEventListener("click", (e) => {
 
 loadContent();
 loadPages();
+loadMemberships();
 </script>
 </body>
 </html>

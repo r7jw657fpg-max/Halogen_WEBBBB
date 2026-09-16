@@ -9,7 +9,18 @@ CREATE TABLE IF NOT EXISTS site_content (
 CREATE TABLE IF NOT EXISTS pages (
   slug TEXT PRIMARY KEY,
   title TEXT,
-  content TEXT
+  content TEXT,
+  image_url TEXT DEFAULT ''
+);
+
+-- Mitgliedsanmeldungen von der Anmeldungsseite
+CREATE TABLE IF NOT EXISTS memberships (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL,
+  email TEXT NOT NULL,
+  joined_date TEXT NOT NULL,
+  accepted_statutes INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL
 );
 
 -- Startwerte

@@ -31,17 +31,29 @@
     inset: 0;
     background: linear-gradient(180deg, rgba(0,0,0,0.35), rgba(0,0,0,0.55));
   }
-  #wordmark {
+  .wordmark-vertical {
     position: fixed;
-    top: 32px;
-    left: 32px;
+    top: 0;
+    bottom: 0;
+    padding: 28px 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    align-items: center;
     color: var(--panel-fg);
-    font-size: 1.4rem;
-    letter-spacing: 0.08em;
+    letter-spacing: 0.02em;
     text-transform: uppercase;
+    font-weight: 600;
     z-index: 5;
     mix-blend-mode: difference;
+    pointer-events: none;
   }
+  .wordmark-vertical span {
+    display: block;
+    line-height: 1;
+  }
+  #wordmark-left { left: 18px; }
+  #wordmark-right { right: 18px; }
   .panel {
     position: absolute;
     width: 190px;
@@ -173,7 +185,8 @@
 </head>
 <body>
   <div id="hero"></div>
-  <div id="wordmark">Kulturverein Halogen</div>
+  <div id="wordmark-left" class="wordmark-vertical"></div>
+  <div id="wordmark-right" class="wordmark-vertical"></div>
   <div id="panel-container"></div>
 
   <div id="tube-fixture">
@@ -187,6 +200,40 @@
       <span class="line2">Klicken, um Licht zu machen.</span>
     </div>
   </div>
+
+<script>
+(function () {
+  // Vertikale Wortmarke: Buchstaben von oben nach unten, links "Halogen",
+  // rechts "Kulturverein". Beide Wörter füllen exakt die Viewport-Höhe,
+  // die Schriftgröße pro Buchstabe ergibt sich automatisch aus der
+  // Buchstabenanzahl – "Kulturverein" hat mehr Buchstaben, wird also
+  // pro Buchstabe kleiner als "Halogen".
+  function buildVerticalWord(container, word) {
+    container.innerHTML = "";
+    for (const ch of word) {
+      const span = document.createElement("span");
+      span.textContent = ch;
+      container.appendChild(span);
+    }
+  }
+  function sizeVerticalWord(container) {
+    const available = window.innerHeight - 56; // minus vertikales Padding
+    const count = container.children.length;
+    const fontSize = Math.max(8, (available / count) * 0.82);
+    container.style.fontSize = fontSize + "px";
+  }
+  const wordLeft = document.getElementById("wordmark-left");
+  const wordRight = document.getElementById("wordmark-right");
+  buildVerticalWord(wordLeft, "HALOGEN");
+  buildVerticalWord(wordRight, "KULTURVEREIN");
+  function resizeWordmarks() {
+    sizeVerticalWord(wordLeft);
+    sizeVerticalWord(wordRight);
+  }
+  resizeWordmarks();
+  window.addEventListener("resize", resizeWordmarks);
+})();
+</script>
 
 <script>
 (async function () {
@@ -213,6 +260,33 @@
   const SIZE = 190;
   const SPEED = 0.7;
 
+  // Klont das angeklickte Panel und animiert es auf volle Bildschirmgröße,
+  // bevor zur Unterseite navigiert wird ("reinzoomen" ins Panel).
+  function zoomIntoPanel(el, link) {
+    const rect = el.getBoundingClientRect();
+    const clone = el.cloneNode(true);
+    clone.style.position = "fixed";
+    clone.style.left = rect.left + "px";
+    clone.style.top = rect.top + "px";
+    clone.style.width = rect.width + "px";
+    clone.style.height = rect.height + "px";
+    clone.style.margin = "0";
+    clone.style.zIndex = "50";
+    clone.style.transition = "left 0.5s ease, top 0.5s ease, width 0.5s ease, height 0.5s ease, border-radius 0.5s ease";
+    document.body.appendChild(clone);
+    clone.getBoundingClientRect(); // reflow erzwingen, damit die Transition greift
+
+    requestAnimationFrame(() => {
+      clone.style.left = "0px";
+      clone.style.top = "0px";
+      clone.style.width = "100vw";
+      clone.style.height = "100vh";
+      clone.style.borderRadius = "0px";
+    });
+
+    setTimeout(() => { window.location.href = link; }, 520);
+  }
+
   const panels = panelDefs.map((def, i) => {
     const el = document.createElement("div");
     el.className = "panel";
@@ -224,7 +298,10 @@
     labelSpan.className = "panel-label";
     labelSpan.textContent = def.label;
     el.appendChild(labelSpan);
-    el.addEventListener("click", () => { window.location.href = def.link; });
+    el.addEventListener("click", () => {
+      if (def.link === "#") return;
+      zoomIntoPanel(el, def.link);
+    });
     container.appendChild(el);
 
     const angle = Math.random() * Math.PI * 2;

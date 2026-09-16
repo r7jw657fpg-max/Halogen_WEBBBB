@@ -6,13 +6,27 @@
 <title>Programm – Kulturverein Halogen</title>
 <style>
   body { margin:0; font-family:"Helvetica Neue",Arial,sans-serif; background:#111; color:#f4f1ea; }
-  header { padding:32px; }
+  header { padding:32px; position:relative; z-index:1; }
   a.back { color:#ffb703; text-decoration:none; font-size:0.9rem; }
-  main { padding:0 32px 64px; max-width:720px; }
+  main { padding:0 32px 64px; max-width:720px; position:relative; z-index:1; }
   h1 { text-transform:uppercase; letter-spacing:0.05em; }
+  #bg-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    background-size: cover;
+    background-position: center;
+  }
+  #bg-overlay::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(180deg, rgba(0,0,0,0.55), rgba(0,0,0,0.75));
+  }
 </style>
 </head>
 <body>
+<div id="bg-overlay"></div>
 <header><a class="back" href="/">&larr; Zurück</a></header>
 <main>
   <h1 id="page-title">Programm</h1>
@@ -24,6 +38,9 @@ fetch("/api/pages/programm")
   .then(data => {
     document.getElementById("page-title").textContent = data.title || "Programm";
     document.getElementById("page-content").innerHTML = data.content || "";
+    if (data.image_url) {
+      document.getElementById("bg-overlay").style.backgroundImage = `url(${data.image_url})`;
+    }
   })
   .catch(() => {});
 </script>

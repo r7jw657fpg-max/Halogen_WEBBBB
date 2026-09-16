@@ -35,11 +35,33 @@ export default {
 
     if (url.pathname.startsWith("/api/admin/pages/") && request.method === "POST") {
       const slug = url.pathname.split("/").pop();
-      const { title, content } = await request.json();
+      const { title, content, image_url } = await request.json();
       await env.DB.prepare(
-        "INSERT INTO pages (slug, title, content) VALUES (?, ?, ?) ON CONFLICT(slug) DO UPDATE SET title = excluded.title, content = excluded.content"
-      ).bind(slug, title, content).run();
+        "INSERT INTO pages (slug, title, content, image_url) VALUES (?, ?, ?, ?) ON CONFLICT(slug) DO UPDATE SET title = excluded.title, content = excluded.content, image_url = excluded.image_url"
+      ).bind(slug, title, content, image_url || "").run();
       return json({ ok: true });
+    }
+
+    // --- Öffentliche Mitgliedsanmeldung ---
+    if (url.pathname === "/api/anmeldung" && request.method === "POST") {
+      const { name, email, accepted } = await request.json();
+      if (!name || !email || !accepted) {
+        return json({ error: "Name, E-Mail und Zustimmung zu den Statuten sind erforderlich" }, 400);
+      }
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        return json({ error: "Ungültige E-Mail-Adresse" }, 400);
+      }
+      const joinedDate = new Date().toISOString().slice(0, 10);
+      await env.DB.prepare(
+        "INSERT INTO memberships (name, email, joined_date, accepted_statutes, created_at) VALUES (?, ?, ?, 1, ?)"
+      ).bind(String(name).slice(0, 200), String(email).slice(0, 200), joinedDate, new Date().toISOString()).run();
+      return json({ ok: true, joinedDate });
+    }
+
+    // --- Admin: Mitgliederliste ---
+    if (url.pathname === "/api/admin/memberships" && request.method === "GET") {
+      const rows = await env.DB.prepare("SELECT * FROM memberships ORDER BY created_at DESC").all();
+      return json(rows.results);
     }
 
     if (url.pathname === "/api/admin/upload" && request.method === "POST") {
