@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Admin – Kulturverein Halogen</title>
+<script src="https://cdn.jsdelivr.net/npm/heic2any@0.0.4/dist/heic2any.min.js"></script>
 <style>
   body { margin:0; font-family:"Helvetica Neue",Arial,sans-serif; background:#1a1a1a; color:#f4f1ea; }
   header { padding:24px 32px; border-bottom:1px solid #333; }
@@ -58,10 +59,34 @@
 const PAGE_SLUGS = ["programm", "anmeldung", "produkte", "weiteres"];
 const CHUNK_SIZE = 8 * 1024 * 1024; // 8MB pro Chunk
 
+// iPhone-Fotos kommen oft als HEIC/HEIF – das kann außer Safari kaum ein
+// Browser anzeigen (weder als <img> noch als CSS-Hintergrundbild). Deshalb
+// wird vor dem Upload automatisch nach JPEG konvertiert.
+async function convertHeicIfNeeded(file, onStatus) {
+  const isHeic = /\.(heic|heif)$/i.test(file.name) || file.type === "image/heic" || file.type === "image/heif";
+  if (!isHeic) return file;
+  onStatus && onStatus("Konvertiere HEIC-Bild...");
+  const converted = await heic2any({ blob: file, toType: "image/jpeg", quality: 0.9 });
+  const blob = Array.isArray(converted) ? converted[0] : converted;
+  const newName = file.name.replace(/\.(heic|heif)$/i, ".jpg");
+  return new File([blob], newName, { type: "image/jpeg" });
+}
+
+async function saveContent(body) {
+  const res = await fetch("/api/admin/content", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error(`Server antwortete mit ${res.status}`);
+}
+
 // Lädt eine Datei hoch. Kleine Dateien gehen in einem Request raus,
 // größere werden in Chunks zerlegt (Multipart-Upload über R2), damit
 // weder das Worker-Request-Limit noch der Arbeitsspeicher ein Problem sind.
-async function uploadFile(file, onProgress) {
+async function uploadFile(file, onProgress, onStatus) {
+  file = await convertHeicIfNeeded(file, onStatus);
+
   if (file.size <= CHUNK_SIZE) {
     const formData = new FormData();
     formData.append("file", file);
@@ -136,21 +161,19 @@ async function loadContent() {
       if (!file) return;
       const status = document.getElementById(`panel_${i}_img_status`);
       try {
-        const url = await uploadFile(file, (p) => {
-          status.textContent = `Lädt hoch... ${Math.round(p * 100)}%`;
-        });
-        await fetch("/api/admin/content", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ [`panel_${i}_image_url`]: url }),
-        });
+        const url = await uploadFile(
+          file,
+          (p) => { status.textContent = `Lädt hoch... ${Math.round(p * 100)}%`; },
+          (msg) => { status.textContent = msg; }
+        );
+        await saveContent({ [`panel_${i}_image_url`]: url });
         document.getElementById(`panel_${i}_preview`).src = url;
         status.textContent = "Gespeichert ✓";
       } catch (err) {
-        status.textContent = "Fehler beim Hochladen";
+        status.textContent = "Fehler: " + (err.message || "Upload fehlgeschlagen");
         console.error(err);
       }
-      setTimeout(() => status.textContent = "", 2000);
+      setTimeout(() => status.textContent = "", 3500);
     });
   }
 }
@@ -177,13 +200,20 @@ async function loadPages() {
       const slug = btn.dataset.slug;
       const title = document.getElementById(`title_${slug}`).value;
       const content = document.getElementById(`content_${slug}`).value;
-      await fetch(`/api/admin/pages/${slug}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title, content }),
-      });
-      document.getElementById(`status_${slug}`).textContent = "Gespeichert ✓";
-      setTimeout(() => document.getElementById(`status_${slug}`).textContent = "", 2000);
+      const status = document.getElementById(`status_${slug}`);
+      try {
+        const res = await fetch(`/api/admin/pages/${slug}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ title, content }),
+        });
+        if (!res.ok) throw new Error(`Server antwortete mit ${res.status}`);
+        status.textContent = "Gespeichert ✓";
+      } catch (err) {
+        status.textContent = "Fehler: " + (err.message || "Speichern fehlgeschlagen");
+        console.error(err);
+      }
+      setTimeout(() => status.textContent = "", 3500);
     });
   });
 }
@@ -193,36 +223,36 @@ document.getElementById("hero-upload-btn").addEventListener("click", async () =>
   if (!fileInput.files[0]) return;
   const status = document.getElementById("hero-status");
   try {
-    const url = await uploadFile(fileInput.files[0], (p) => {
-      status.textContent = `Lädt hoch... ${Math.round(p * 100)}%`;
-    });
-    await fetch("/api/admin/content", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ hero_image_url: url }),
-    });
+    const url = await uploadFile(
+      fileInput.files[0],
+      (p) => { status.textContent = `Lädt hoch... ${Math.round(p * 100)}%`; },
+      (msg) => { status.textContent = msg; }
+    );
+    await saveContent({ hero_image_url: url });
     status.textContent = "Gespeichert ✓";
     document.getElementById("hero-preview").src = url;
   } catch (err) {
-    status.textContent = "Fehler beim Hochladen";
+    status.textContent = "Fehler: " + (err.message || "Upload fehlgeschlagen");
     console.error(err);
   }
-  setTimeout(() => status.textContent = "", 2000);
+  setTimeout(() => status.textContent = "", 3500);
 });
 
 document.getElementById("save-panels-btn").addEventListener("click", async () => {
+  const status = document.getElementById("panels-status");
   const body = {};
   for (let i = 1; i <= 4; i++) {
     body[`panel_${i}_label`] = document.getElementById(`panel_${i}_label`).value;
     body[`panel_${i}_link`] = document.getElementById(`panel_${i}_link`).value;
   }
-  await fetch("/api/admin/content", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
-  document.getElementById("panels-status").textContent = "Gespeichert ✓";
-  setTimeout(() => document.getElementById("panels-status").textContent = "", 2000);
+  try {
+    await saveContent(body);
+    status.textContent = "Gespeichert ✓";
+  } catch (err) {
+    status.textContent = "Fehler: " + (err.message || "Speichern fehlgeschlagen");
+    console.error(err);
+  }
+  setTimeout(() => status.textContent = "", 3500);
 });
 
 document.getElementById("generic-upload-btn").addEventListener("click", async () => {
@@ -230,18 +260,20 @@ document.getElementById("generic-upload-btn").addEventListener("click", async ()
   if (!fileInput.files[0]) return;
   const status = document.getElementById("generic-status");
   try {
-    const url = await uploadFile(fileInput.files[0], (p) => {
-      status.textContent = `Lädt hoch... ${Math.round(p * 100)}%`;
-    });
+    const url = await uploadFile(
+      fileInput.files[0],
+      (p) => { status.textContent = `Lädt hoch... ${Math.round(p * 100)}%`; },
+      (msg) => { status.textContent = msg; }
+    );
     status.textContent = "Hochgeladen ✓";
     document.getElementById("generic-result").innerHTML =
       `<a href="${url}" target="_blank" style="color:#ffb703;">${url}</a> ` +
       `<button type="button" class="copy-link-btn" data-url="${url}">Link kopieren</button>`;
   } catch (err) {
-    status.textContent = "Fehler beim Hochladen";
+    status.textContent = "Fehler: " + (err.message || "Upload fehlgeschlagen");
     console.error(err);
   }
-  setTimeout(() => status.textContent = "", 2000);
+  setTimeout(() => status.textContent = "", 3500);
 });
 
 document.addEventListener("click", (e) => {

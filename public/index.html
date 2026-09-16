@@ -89,18 +89,18 @@
 
   #tube-fixture {
     position: fixed;
-    top: 18px;
+    top: 22px;
     left: 50%;
     transform: translateX(-50%);
-    width: min(360px, 70vw);
-    height: 14px;
+    width: min(640px, 85vw);
+    height: 24px;
     z-index: 20;
     pointer-events: none;
   }
   #tube-glow {
     position: absolute;
-    inset: -40px -20px auto -20px;
-    height: 90px;
+    inset: -60px -30px auto -30px;
+    height: 150px;
     background: radial-gradient(ellipse at center, rgba(226,240,255,0.55), rgba(226,240,255,0) 70%);
     opacity: 0;
     filter: blur(2px);
@@ -110,7 +110,7 @@
     inset: 0;
     border-radius: 999px;
     background: linear-gradient(180deg, #ffffff, #dce9ff);
-    box-shadow: 0 0 8px 2px rgba(220,233,255,0.9), 0 0 24px 6px rgba(180,210,255,0.5);
+    box-shadow: 0 0 14px 4px rgba(220,233,255,0.9), 0 0 40px 10px rgba(180,210,255,0.5);
     opacity: 0;
   }
   #tube-light::before, #tube-light::after {
@@ -118,13 +118,13 @@
     position: absolute;
     top: 50%;
     transform: translateY(-50%);
-    width: 6px;
-    height: 20px;
+    width: 10px;
+    height: 32px;
     background: #333;
-    border-radius: 2px;
+    border-radius: 3px;
   }
-  #tube-light::before { left: -8px; }
-  #tube-light::after { right: -8px; }
+  #tube-light::before { left: -12px; }
+  #tube-light::after { right: -12px; }
 
   #dark-overlay {
     position: fixed;
@@ -211,7 +211,7 @@
   }));
 
   const SIZE = 190;
-  const SPEED = 1.4;
+  const SPEED = 0.7;
 
   const panels = panelDefs.map((def, i) => {
     const el = document.createElement("div");
@@ -253,16 +253,32 @@
       p.el.style.transform = `translate(${p.x}px, ${p.y}px)`;
     }
 
-    // Einfache Panel-zu-Panel-Kollision (Kreis-Annäherung)
+    // Panel-zu-Panel-Kollision (Kreis-Annäherung): Positionen sauber
+    // auseinanderschieben, damit sich die Panels nicht ineinander
+    // verhaken, plus elastische Reflexion entlang der Kollisionsachse.
+    const MIN_DIST = SIZE * 0.9;
     for (let i = 0; i < panels.length; i++) {
       for (let j = i + 1; j < panels.length; j++) {
         const a = panels[i], b = panels[j];
-        const dx = (a.x + SIZE/2) - (b.x + SIZE/2);
-        const dy = (a.y + SIZE/2) - (b.y + SIZE/2);
+        const dx = (b.x + SIZE/2) - (a.x + SIZE/2);
+        const dy = (b.y + SIZE/2) - (a.y + SIZE/2);
         const dist = Math.hypot(dx, dy);
-        if (dist < SIZE * 0.9) {
-          [a.vx, b.vx] = [b.vx, a.vx];
-          [a.vy, b.vy] = [b.vy, a.vy];
+        if (dist > 0 && dist < MIN_DIST) {
+          const nx = dx / dist;
+          const ny = dy / dist;
+
+          const overlap = MIN_DIST - dist;
+          a.x -= nx * overlap / 2;
+          a.y -= ny * overlap / 2;
+          b.x += nx * overlap / 2;
+          b.y += ny * overlap / 2;
+
+          const avn = a.vx * nx + a.vy * ny;
+          const bvn = b.vx * nx + b.vy * ny;
+          a.vx += (bvn - avn) * nx;
+          a.vy += (bvn - avn) * ny;
+          b.vx += (avn - bvn) * nx;
+          b.vy += (avn - bvn) * ny;
         }
       }
     }
