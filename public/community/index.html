@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Community – Kulturverein Halogen</title>
+<style>
+  body { margin:0; font-family:"Helvetica Neue",Arial,sans-serif; background:#111; color:#f4f1ea; }
+  header { padding:32px; display:flex; justify-content:space-between; align-items:center; }
+  a.back { color:#ffb703; text-decoration:none; font-size:0.9rem; }
+  main { padding:0 32px 64px; max-width:800px; }
+  h1 { text-transform:uppercase; letter-spacing:0.05em; }
+  h2 { font-size:1.05rem; text-transform:uppercase; letter-spacing:0.04em; margin-top:0; }
+  section.card { background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.12); border-radius:12px; padding:20px; margin-bottom:24px; }
+  label { display:block; margin:12px 0 4px; font-size:0.85rem; color:#ccc; }
+  input[type=text], input[type=email], input[type=password], input[type=date], input[type=time], textarea {
+    width:100%; padding:9px; border-radius:6px; border:1px solid #444; background:#0c0c0c; color:#f4f1ea; font-family:inherit; font-size:0.95rem; box-sizing:border-box;
+  }
+  textarea { min-height:70px; }
+  button { padding:10px 18px; background:#ffb703; border:none; border-radius:6px; font-weight:600; cursor:pointer; margin-top:12px; font-family:inherit; }
+  button.secondary { background:#333; color:#f4f1ea; }
+  button.small { padding:5px 10px; font-size:0.8rem; margin-top:8px; margin-right:8px; }
+  .checkbox-row { display:flex; align-items:flex-start; gap:8px; margin-top:14px; font-size:0.88rem; }
+  .checkbox-row input { margin-top:3px; }
+  .status { font-size:0.85rem; margin-top:10px; display:block; color:#999; }
+  .status.ok { color:#8f8; }
+  .status.err { color:#f88; }
+  .tabs { display:flex; gap:8px; margin-bottom:16px; }
+  .tab-btn { padding:8px 16px; background:transparent; border:1px solid rgba(255,255,255,0.25); border-radius:20px; color:#f4f1ea; cursor:pointer; font-size:0.85rem; font-family:inherit; }
+  .tab-btn.active { background:#ffb703; color:#111; border-color:#ffb703; }
+  .tab-panel { display:none; }
+  .tab-panel.active { display:block; }
+  .post-card, .member-card { border-bottom:1px solid #2a2a2a; padding:14px 0; }
+  .post-card:last-child, .member-card:last-child { border-bottom:none; }
+  .post-title { font-weight:600; }
+  .post-meta { font-size:0.78rem; color:#999; margin:2px 0 6px; }
+  .card-hint { margin-top:0; font-size:0.88rem; color:#ccc; }
+  a { color:#ffb703; }
+</style>
+</head>
+<body>
+<header>
+  <a class="back" href="/">&larr; Zurück</a>
+  <span id="logout-wrap" style="display:none;"><button type="button" class="secondary small" id="logout-btn">Logout</button></span>
+</header>
+<main>
+  <h1>Community</h1>
+
+  <div id="logged-out-view">
+    <div class="tabs">
+      <button type="button" class="tab-btn active" data-tab="login">Login</button>
+      <button type="button" class="tab-btn" data-tab="activate">Zugang aktivieren</button>
+    </div>
+
+    <div class="tab-panel active" id="tab-login">
+      <section class="card">
+        <p class="card-hint">Für Vereinsmitglieder mit aktiviertem Community-Zugang.</p>
+        <label>E-Mail</label>
+        <input type="email" id="login-email" autocomplete="email">
+        <label>Passwort</label>
+        <input type="password" id="login-password" autocomplete="current-password">
+        <button type="button" id="login-btn">Einloggen</button>
+        <span class="status" id="login-status"></span>
+      </section>
+    </div>
+
+    <div class="tab-panel" id="tab-activate">
+      <section class="card">
+        <p class="card-hint">
+          Schon Vereinsmitglied (über die Anmeldung), aber noch kein Community-Zugang? Hier mit derselben E-Mail aktivieren.
+        </p>
+        <label>E-Mail (die von deiner Anmeldung)</label>
+        <input type="email" id="activate-email" autocomplete="email">
+        <label>Passwort wählen (mind. 6 Zeichen)</label>
+        <input type="password" id="activate-password" autocomplete="new-password">
+        <label>Kurzer Text über dich / dein Projekt (optional)</label>
+        <textarea id="activate-bio"></textarea>
+        <label>Social-Media-Link (optional)</label>
+        <input type="text" id="activate-social">
+        <div class="checkbox-row">
+          <input type="checkbox" id="activate-visible">
+          <label for="activate-visible" style="margin:0;">Mein Profil in der Mitgliederliste für andere Mitglieder sichtbar machen</label>
+        </div>
+        <button type="button" id="activate-btn">Zugang aktivieren</button>
+        <span class="status" id="activate-status"></span>
+      </section>
+    </div>
+  </div>
+
+  <div id="logged-in-view" style="display:none;">
+    <section class="card">
+      <h2>Agenda</h2>
+      <p class="card-hint">Events, Kulturveranstaltungen und Projekte von Mitgliedern.</p>
+      <div id="posts-list"></div>
+      <h3 style="font-size:0.9rem; text-transform:uppercase; margin:20px 0 0;">Neuer Eintrag</h3>
+      <input type="hidden" id="post-id">
+      <label>Titel</label>
+      <input type="text" id="post-title">
+      <div style="display:flex; gap:12px;">
+        <div style="flex:1;">
+          <label>Datum (optional)</label>
+          <input type="date" id="post-date">
+        </div>
+        <div style="flex:1;">
+          <label>Uhrzeit (optional)</label>
+          <input type="time" id="post-time">
+        </div>
+      </div>
+      <label>Beschreibung (optional)</label>
+      <textarea id="post-description"></textarea>
+      <label>Link (optional)</label>
+      <input type="text" id="post-link" placeholder="https://...">
+      <button type="button" id="post-save-btn">Eintrag speichern</button>
+      <button type="button" class="secondary" id="post-cancel-btn">Abbrechen</button>
+      <span class="status" id="post-status"></span>
+    </section>
+
+    <section class="card">
+      <h2>Mitglieder</h2>
+      <div id="members-list"></div>
+    </section>
+
+    <section class="card">
+      <h2>Mein Profil</h2>
+      <label>Kurzer Text über dich / dein Projekt</label>
+      <textarea id="profile-bio"></textarea>
+      <label>Social-Media-Link</label>
+      <input type="text" id="profile-social">
+      <div class="checkbox-row">
+        <input type="checkbox" id="profile-visible">
+        <label for="profile-visible" style="margin:0;">Mein Profil in der Mitgliederliste sichtbar</label>
+      </div>
+      <label>Neues Passwort (optional, leer lassen zum Behalten)</label>
+      <input type="password" id="profile-password" autocomplete="new-password">
+      <button type="button" id="profile-save-btn">Profil speichern</button>
+      <span class="status" id="profile-status"></span>
+    </section>
+  </div>
+</main>
+<script>
+function escapeHtml(str) {
+  return String(str).replace(/[&<>"']/g, (c) => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+  }[c]));
+}
+
+function formatPostDate(dateStr, timeStr) {
+  if (!dateStr) return "";
+  const [y, m, d] = dateStr.split("-");
+  return `${d}.${m}.${y}` + (timeStr ? ` · ${timeStr}` : "");
+}
+
+let currentMember = null;
+let postsCache = [];
+
+document.querySelectorAll(".tab-btn").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll(".tab-btn").forEach((b) => b.classList.remove("active"));
+    document.querySelectorAll(".tab-panel").forEach((p) => p.classList.remove("active"));
+    btn.classList.add("active");
+    document.getElementById(`tab-${btn.dataset.tab}`).classList.add("active");
+  });
+});
+
+async function checkSession() {
+  const res = await fetch("/api/community/me");
+  if (res.ok) {
+    currentMember = await res.json();
+    await showLoggedIn();
+  } else {
+    showLoggedOut();
+  }
+}
+
+function showLoggedOut() {
+  document.getElementById("logged-out-view").style.display = "";
+  document.getElementById("logged-in-view").style.display = "none";
+  document.getElementById("logout-wrap").style.display = "none";
+}
+
+async function showLoggedIn() {
+  document.getElementById("logged-out-view").style.display = "none";
+  document.getElementById("logged-in-view").style.display = "";
+  document.getElementById("logout-wrap").style.display = "";
+
+  document.getElementById("profile-bio").value = currentMember.bio || "";
+  document.getElementById("profile-social").value = currentMember.social_link || "";
+  document.getElementById("profile-visible").checked = !!currentMember.contact_visible;
+
+  await loadPosts();
+  await loadMembers();
+}
+
+document.getElementById("login-btn").addEventListener("click", async () => {
+  const email = document.getElementById("login-email").value.trim();
+  const password = document.getElementById("login-password").value;
+  const status = document.getElementById("login-status");
+  status.textContent = "";
+  status.className = "status";
+  try {
+    const res = await fetch("/api/community/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Login fehlgeschlagen");
+    await checkSession();
+  } catch (err) {
+    status.textContent = err.message;
+    status.className = "status err";
+  }
+});
+
+document.getElementById("activate-btn").addEventListener("click", async () => {
+  const email = document.getElementById("activate-email").value.trim();
+  const password = document.getElementById("activate-password").value;
+  const bio = document.getElementById("activate-bio").value;
+  const social_link = document.getElementById("activate-social").value;
+  const contact_visible = document.getElementById("activate-visible").checked;
+  const status = document.getElementById("activate-status");
+  status.textContent = "";
+  status.className = "status";
+  try {
+    const res = await fetch("/api/community/activate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password, bio, social_link, contact_visible }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Aktivierung fehlgeschlagen");
+    await checkSession();
+  } catch (err) {
+    status.textContent = err.message;
+    status.className = "status err";
+  }
+});
+
+document.getElementById("logout-btn").addEventListener("click", async () => {
+  await fetch("/api/community/logout", { method: "POST" });
+  currentMember = null;
+  showLoggedOut();
+});
+
+async function loadPosts() {
+  const list = document.getElementById("posts-list");
+  const res = await fetch("/api/community/posts");
+  if (!res.ok) { list.innerHTML = "<p style='color:#999;'>Konnte Agenda nicht laden.</p>"; return; }
+  postsCache = await res.json();
+  if (!postsCache.length) {
+    list.innerHTML = "<p style='color:#999;'>Noch keine Einträge.</p>";
+  } else {
+    list.innerHTML = postsCache.map((p) => `
+      <div class="post-card">
+        <div class="post-title">${escapeHtml(p.title)}</div>
+        <div class="post-meta">${escapeHtml(p.author_name)}${p.event_date ? " · " + escapeHtml(formatPostDate(p.event_date, p.event_time)) : ""}</div>
+        ${p.description ? `<p style="margin:6px 0; font-size:0.9rem; color:#ddd;">${escapeHtml(p.description)}</p>` : ""}
+        ${p.link ? `<a href="${escapeHtml(p.link)}" target="_blank">${escapeHtml(p.link)}</a>` : ""}
+        ${p.member_id === currentMember.id ? `
+          <div>
+            <button type="button" class="secondary small post-edit-btn" data-id="${p.id}">Bearbeiten</button>
+            <button type="button" class="secondary small post-delete-btn" data-id="${p.id}">Löschen</button>
+          </div>` : ""}
+      </div>
+    `).join("");
+  }
+
+  list.querySelectorAll(".post-edit-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const p = postsCache.find((x) => String(x.id) === btn.dataset.id);
+      if (!p) return;
+      document.getElementById("post-id").value = p.id;
+      document.getElementById("post-title").value = p.title;
+      document.getElementById("post-date").value = p.event_date || "";
+      document.getElementById("post-time").value = p.event_time || "";
+      document.getElementById("post-description").value = p.description || "";
+      document.getElementById("post-link").value = p.link || "";
+      document.getElementById("post-title").scrollIntoView({ behavior: "smooth", block: "center" });
+    });
+  });
+
+  list.querySelectorAll(".post-delete-btn").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      if (!confirm("Eintrag wirklich löschen?")) return;
+      await fetch(`/api/community/posts/${btn.dataset.id}`, { method: "DELETE" });
+      loadPosts();
+    });
+  });
+}
+
+function resetPostForm() {
+  document.getElementById("post-id").value = "";
+  document.getElementById("post-title").value = "";
+  document.getElementById("post-date").value = "";
+  document.getElementById("post-time").value = "";
+  document.getElementById("post-description").value = "";
+  document.getElementById("post-link").value = "";
+}
+
+document.getElementById("post-save-btn").addEventListener("click", async () => {
+  const id = document.getElementById("post-id").value;
+  const title = document.getElementById("post-title").value.trim();
+  const event_date = document.getElementById("post-date").value;
+  const event_time = document.getElementById("post-time").value;
+  const description = document.getElementById("post-description").value;
+  const link = document.getElementById("post-link").value;
+  const status = document.getElementById("post-status");
+
+  if (!title) {
+    status.textContent = "Titel ist erforderlich";
+    status.className = "status err";
+    return;
+  }
+
+  try {
+    const res = await fetch(id ? `/api/community/posts/${id}` : "/api/community/posts", {
+      method: id ? "PUT" : "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title, event_date, event_time, description, link }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Speichern fehlgeschlagen");
+    status.textContent = "Gespeichert ✓";
+    status.className = "status ok";
+    resetPostForm();
+    loadPosts();
+  } catch (err) {
+    status.textContent = err.message;
+    status.className = "status err";
+  }
+  setTimeout(() => { status.textContent = ""; status.className = "status"; }, 3000);
+});
+
+document.getElementById("post-cancel-btn").addEventListener("click", () => {
+  resetPostForm();
+  document.getElementById("post-status").textContent = "";
+});
+
+async function loadMembers() {
+  const list = document.getElementById("members-list");
+  const res = await fetch("/api/community/members");
+  if (!res.ok) { list.innerHTML = "<p style='color:#999;'>Konnte Mitgliederliste nicht laden.</p>"; return; }
+  const members = await res.json();
+  if (!members.length) {
+    list.innerHTML = "<p style='color:#999;'>Noch niemand sichtbar.</p>";
+    return;
+  }
+  list.innerHTML = members.map((m) => `
+    <div class="member-card">
+      <div style="font-weight:600;">${escapeHtml(m.name)}</div>
+      ${m.bio ? `<p style="margin:4px 0; font-size:0.88rem; color:#ddd;">${escapeHtml(m.bio)}</p>` : ""}
+      ${m.social_link ? `<a href="${escapeHtml(m.social_link)}" target="_blank">${escapeHtml(m.social_link)}</a>` : ""}
+    </div>
+  `).join("");
+}
+
+document.getElementById("profile-save-btn").addEventListener("click", async () => {
+  const bio = document.getElementById("profile-bio").value;
+  const social_link = document.getElementById("profile-social").value;
+  const contact_visible = document.getElementById("profile-visible").checked;
+  const password = document.getElementById("profile-password").value;
+  const status = document.getElementById("profile-status");
+
+  try {
+    const res = await fetch("/api/community/me", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ bio, social_link, contact_visible, password: password || undefined }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Speichern fehlgeschlagen");
+    status.textContent = "Gespeichert ✓";
+    status.className = "status ok";
+    document.getElementById("profile-password").value = "";
+    loadMembers();
+  } catch (err) {
+    status.textContent = err.message;
+    status.className = "status err";
+  }
+  setTimeout(() => { status.textContent = ""; status.className = "status"; }, 3000);
+});
+
+checkSession();
+</script>
+</body>
+</html>

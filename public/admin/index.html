@@ -45,6 +45,38 @@
   </section>
 
   <section>
+    <h2>Events (Programm-Seite)</h2>
+    <div id="events-list" style="margin-bottom:20px;"></div>
+    <h3 style="font-size:0.95rem; text-transform:uppercase; letter-spacing:0.05em; margin:0 0 8px;">Neuer Event / Bearbeiten</h3>
+    <input type="hidden" id="event-id">
+    <label>Titel</label>
+    <input type="text" id="event-title">
+    <div class="grid">
+      <div>
+        <label>Datum</label>
+        <input type="date" id="event-date">
+      </div>
+      <div>
+        <label>Uhrzeit (optional)</label>
+        <input type="time" id="event-time">
+      </div>
+    </div>
+    <label>Beschreibung (optional)</label>
+    <textarea id="event-description"></textarea>
+    <label>Tags</label>
+    <div id="event-tags-checkboxes"></div>
+    <label>Bild</label>
+    <input type="file" id="event-file" accept="image/*">
+    <span class="status" id="event-img-status"></span>
+    <img class="preview" id="event-preview">
+    <div>
+      <button type="button" id="event-save-btn">Event speichern</button>
+      <button type="button" id="event-cancel-btn" style="background:#444; color:#f4f1ea;">Abbrechen / Neu</button>
+    </div>
+    <span class="status" id="event-status"></span>
+  </section>
+
+  <section>
     <h2>Dateien (PDF, Bilder, etc.)</h2>
     <p style="font-size:0.85rem; color:#999; margin-top:0;">Datei hochladen, dann den Link in den HTML-Inhalt einer Unterseite einfügen, z. B. <code>&lt;a href="LINK"&gt;Programm als PDF&lt;/a&gt;</code>.</p>
     <input type="file" id="generic-file">
@@ -66,6 +98,7 @@
 <script>
 const PAGE_SLUGS = ["programm", "anmeldung", "produkte", "weiteres"];
 const PAGE_TO_PANEL = { programm: 1, anmeldung: 2, produkte: 3, weiteres: 4 };
+const EVENT_TAGS = ["Workshop", "Halogen Event", "Bar/Gastro-Betrieb", "Food Event", "Spiel/Turnier"];
 const CHUNK_SIZE = 8 * 1024 * 1024; // 8MB pro Chunk
 
 // iPhone-Fotos kommen oft als HEIC/HEIF – das kann außer Safari kaum ein
@@ -150,7 +183,7 @@ async function loadContent() {
 
   const grid = document.getElementById("panels-grid");
   grid.innerHTML = "";
-  for (let i = 1; i <= 4; i++) {
+  for (let i = 1; i <= 5; i++) {
     grid.innerHTML += `
       <div>
         <label>Panel ${i} – Titel</label>
@@ -164,7 +197,7 @@ async function loadContent() {
       </div>`;
   }
 
-  for (let i = 1; i <= 4; i++) {
+  for (let i = 1; i <= 5; i++) {
     document.getElementById(`panel_${i}_file`).addEventListener("change", async (e) => {
       const file = e.target.files[0];
       if (!file) return;
@@ -280,6 +313,136 @@ function escapeHtml(str) {
   }[c]));
 }
 
+let eventsCache = [];
+let currentEventImageUrl = "";
+
+function renderEventTagCheckboxes(selected) {
+  const wrap = document.getElementById("event-tags-checkboxes");
+  wrap.innerHTML = EVENT_TAGS.map((tag) => `
+    <label style="display:inline-flex; align-items:center; gap:6px; margin-right:14px; margin-bottom:6px; font-size:0.85rem; color:#ddd; font-weight:normal;">
+      <input type="checkbox" class="event-tag-cb" value="${tag}" ${selected.includes(tag) ? "checked" : ""}> ${tag}
+    </label>
+  `).join("");
+}
+
+function getSelectedEventTags() {
+  return Array.from(document.querySelectorAll(".event-tag-cb:checked")).map((cb) => cb.value);
+}
+
+function resetEventForm() {
+  document.getElementById("event-id").value = "";
+  document.getElementById("event-title").value = "";
+  document.getElementById("event-date").value = "";
+  document.getElementById("event-time").value = "";
+  document.getElementById("event-description").value = "";
+  document.getElementById("event-preview").src = "";
+  currentEventImageUrl = "";
+  renderEventTagCheckboxes([]);
+}
+
+async function loadEvents() {
+  const list = document.getElementById("events-list");
+  eventsCache = await fetch("/api/events").then((r) => r.json());
+  if (!eventsCache.length) {
+    list.innerHTML = "<p style='color:#999;'>Noch keine Events.</p>";
+  } else {
+    list.innerHTML = eventsCache.map((ev) => `
+      <div style="display:flex; justify-content:space-between; align-items:center; padding:8px 0; border-bottom:1px solid #333;">
+        <div>
+          <strong>${escapeHtml(ev.title)}</strong>
+          <span style="color:#999; font-size:0.85rem;"> — ${escapeHtml(ev.event_date)}${ev.event_time ? " " + escapeHtml(ev.event_time) : ""}</span>
+        </div>
+        <div>
+          <button type="button" class="event-edit-btn" data-id="${ev.id}">Bearbeiten</button>
+          <button type="button" class="event-delete-btn" data-id="${ev.id}" style="background:#a33; color:#fff;">Löschen</button>
+        </div>
+      </div>
+    `).join("");
+  }
+
+  document.querySelectorAll(".event-edit-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const ev = eventsCache.find((e) => String(e.id) === btn.dataset.id);
+      if (!ev) return;
+      document.getElementById("event-id").value = ev.id;
+      document.getElementById("event-title").value = ev.title;
+      document.getElementById("event-date").value = ev.event_date;
+      document.getElementById("event-time").value = ev.event_time || "";
+      document.getElementById("event-description").value = ev.description || "";
+      currentEventImageUrl = ev.image_url || "";
+      document.getElementById("event-preview").src = currentEventImageUrl;
+      renderEventTagCheckboxes((ev.tags || "").split(",").filter(Boolean));
+      document.getElementById("event-status").textContent = "";
+    });
+  });
+
+  document.querySelectorAll(".event-delete-btn").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      if (!confirm("Diesen Event wirklich löschen?")) return;
+      await fetch(`/api/admin/events/${btn.dataset.id}`, { method: "DELETE" });
+      resetEventForm();
+      loadEvents();
+    });
+  });
+}
+
+document.getElementById("event-file").addEventListener("change", async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const status = document.getElementById("event-img-status");
+  try {
+    const url = await uploadFile(
+      file,
+      (p) => { status.textContent = `Lädt hoch... ${Math.round(p * 100)}%`; },
+      (msg) => { status.textContent = msg; }
+    );
+    currentEventImageUrl = url;
+    document.getElementById("event-preview").src = url;
+    status.textContent = "Bild bereit";
+  } catch (err) {
+    status.textContent = "Fehler: " + (err.message || "Upload fehlgeschlagen");
+    console.error(err);
+  }
+});
+
+document.getElementById("event-save-btn").addEventListener("click", async () => {
+  const id = document.getElementById("event-id").value;
+  const title = document.getElementById("event-title").value.trim();
+  const event_date = document.getElementById("event-date").value;
+  const event_time = document.getElementById("event-time").value;
+  const description = document.getElementById("event-description").value;
+  const tags = getSelectedEventTags().join(",");
+  const status = document.getElementById("event-status");
+
+  if (!title || !event_date) {
+    status.textContent = "Titel und Datum sind erforderlich";
+    return;
+  }
+
+  const body = { title, description, event_date, event_time, tags, image_url: currentEventImageUrl };
+  try {
+    const res = await fetch(id ? `/api/admin/events/${id}` : "/api/admin/events", {
+      method: id ? "PUT" : "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || `Server antwortete mit ${res.status}`);
+    status.textContent = "Gespeichert ✓";
+    resetEventForm();
+    loadEvents();
+  } catch (err) {
+    status.textContent = "Fehler: " + err.message;
+    console.error(err);
+  }
+  setTimeout(() => status.textContent = "", 3500);
+});
+
+document.getElementById("event-cancel-btn").addEventListener("click", () => {
+  resetEventForm();
+  document.getElementById("event-status").textContent = "";
+});
+
 async function loadMemberships() {
   const status = document.getElementById("memberships-status");
   const wrap = document.getElementById("memberships-table-wrap");
@@ -367,7 +530,7 @@ document.getElementById("hero-upload-btn").addEventListener("click", async () =>
 document.getElementById("save-panels-btn").addEventListener("click", async () => {
   const status = document.getElementById("panels-status");
   const body = {};
-  for (let i = 1; i <= 4; i++) {
+  for (let i = 1; i <= 5; i++) {
     body[`panel_${i}_label`] = document.getElementById(`panel_${i}_label`).value;
     body[`panel_${i}_link`] = document.getElementById(`panel_${i}_link`).value;
   }
@@ -414,6 +577,8 @@ document.addEventListener("click", (e) => {
 loadContent();
 loadPages();
 loadMemberships();
+renderEventTagCheckboxes([]);
+loadEvents();
 </script>
 </body>
 </html>

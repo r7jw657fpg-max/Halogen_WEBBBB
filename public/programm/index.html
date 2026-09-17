@@ -8,7 +8,7 @@
   body { margin:0; font-family:"Helvetica Neue",Arial,sans-serif; background:#111; color:#f4f1ea; }
   header { padding:32px; position:relative; z-index:1; }
   a.back { color:#ffb703; text-decoration:none; font-size:0.9rem; }
-  main { padding:0 32px 64px; max-width:720px; position:relative; z-index:1; }
+  main { padding:0 32px 64px; max-width:1100px; position:relative; z-index:1; }
   h1 { text-transform:uppercase; letter-spacing:0.05em; }
   #bg-overlay {
     position: fixed;
@@ -23,6 +23,79 @@
     inset: 0;
     background: linear-gradient(180deg, rgba(0,0,0,0.55), rgba(0,0,0,0.75));
   }
+
+  #event-filters { display:flex; flex-wrap:wrap; gap:8px; margin:28px 0 20px; }
+  .filter-btn {
+    padding:7px 14px;
+    border-radius:20px;
+    border:1px solid rgba(255,255,255,0.28);
+    background:rgba(0,0,0,0.3);
+    color:#f4f1ea;
+    font-size:0.78rem;
+    cursor:pointer;
+    text-transform:uppercase;
+    letter-spacing:0.03em;
+    font-family:inherit;
+  }
+  .filter-btn.active { background:#ffb703; color:#111; border-color:#ffb703; }
+
+  #event-slider {
+    display:flex;
+    gap:16px;
+    overflow-x:auto;
+    padding:4px 4px 16px;
+    scroll-snap-type: x proximity;
+  }
+  .event-card {
+    flex:0 0 250px;
+    height:320px;
+    border-radius:14px;
+    position:relative;
+    background-size:cover;
+    background-position:center;
+    background-color:#1a1a1a;
+    overflow:hidden;
+    scroll-snap-align:start;
+    display:flex;
+    flex-direction:column;
+    justify-content:flex-end;
+    padding:16px;
+    border:1px solid rgba(255,255,255,0.12);
+  }
+  .event-card::before {
+    content:"";
+    position:absolute;
+    inset:0;
+    background: linear-gradient(180deg, rgba(0,0,0,0.05), rgba(0,0,0,0.88));
+  }
+  .event-card > * { position:relative; z-index:1; }
+  .event-date-badge {
+    font-size:0.75rem;
+    color:#ffb703;
+    text-transform:uppercase;
+    letter-spacing:0.05em;
+    margin-bottom:6px;
+    font-weight:600;
+  }
+  .event-card h3 { margin:0 0 8px; font-size:1.1rem; text-transform:uppercase; letter-spacing:0.02em; }
+  .event-tags { display:flex; flex-wrap:wrap; gap:4px; margin-bottom:8px; }
+  .event-tag-chip {
+    font-size:0.65rem;
+    padding:3px 9px;
+    border-radius:10px;
+    background:rgba(255,255,255,0.16);
+    text-transform:uppercase;
+    letter-spacing:0.03em;
+  }
+  .event-desc {
+    font-size:0.83rem;
+    color:#ddd;
+    margin:0;
+    max-height:70px;
+    overflow:hidden;
+    line-height:1.4;
+  }
+  #event-empty { color:#999; }
 </style>
 </head>
 <body>
@@ -31,8 +104,108 @@
 <main>
   <h1 id="page-title">Programm</h1>
   <div id="page-content">Lädt...</div>
+
+  <div id="event-filters"></div>
+  <div id="event-slider"></div>
 </main>
 <script>
+const EVENT_TAGS = ["Workshop", "Halogen Event", "Bar/Gastro-Betrieb", "Food Event", "Spiel/Turnier"];
+let allEvents = [];
+const activeTagFilters = new Set();
+let weekFilterActive = false;
+
+function escapeHtml(str) {
+  return String(str).replace(/[&<>"']/g, (c) => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+  }[c]));
+}
+
+function isThisWeek(dateStr) {
+  if (!dateStr) return false;
+  const d = new Date(dateStr + "T00:00:00");
+  const now = new Date();
+  const dayIndex = (now.getDay() + 6) % 7; // Montag = 0
+  const monday = new Date(now);
+  monday.setHours(0, 0, 0, 0);
+  monday.setDate(now.getDate() - dayIndex);
+  const sunday = new Date(monday);
+  sunday.setDate(monday.getDate() + 6);
+  sunday.setHours(23, 59, 59, 999);
+  return d >= monday && d <= sunday;
+}
+
+function formatEventDate(dateStr, timeStr) {
+  if (!dateStr) return "";
+  const [y, m, d] = dateStr.split("-");
+  return `${d}.${m}.${y}` + (timeStr ? ` · ${timeStr}` : "");
+}
+
+function buildFilters() {
+  const wrap = document.getElementById("event-filters");
+  let html = `<button type="button" class="filter-btn" id="filter-week-btn">Diese Woche</button>`;
+  for (const tag of EVENT_TAGS) {
+    html += `<button type="button" class="filter-btn" data-tag="${escapeHtml(tag)}">${escapeHtml(tag)}</button>`;
+  }
+  html += `<button type="button" class="filter-btn" id="filter-clear-btn">Alle anzeigen</button>`;
+  wrap.innerHTML = html;
+
+  document.getElementById("filter-week-btn").addEventListener("click", (e) => {
+    weekFilterActive = !weekFilterActive;
+    e.currentTarget.classList.toggle("active", weekFilterActive);
+    renderEvents();
+  });
+
+  wrap.querySelectorAll("[data-tag]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const tag = btn.dataset.tag;
+      if (activeTagFilters.has(tag)) {
+        activeTagFilters.delete(tag);
+        btn.classList.remove("active");
+      } else {
+        activeTagFilters.add(tag);
+        btn.classList.add("active");
+      }
+      renderEvents();
+    });
+  });
+
+  document.getElementById("filter-clear-btn").addEventListener("click", () => {
+    weekFilterActive = false;
+    activeTagFilters.clear();
+    wrap.querySelectorAll(".filter-btn").forEach((b) => b.classList.remove("active"));
+    renderEvents();
+  });
+}
+
+function renderEvents() {
+  const slider = document.getElementById("event-slider");
+  let filtered = allEvents;
+  if (weekFilterActive) filtered = filtered.filter((ev) => isThisWeek(ev.event_date));
+  if (activeTagFilters.size) {
+    filtered = filtered.filter((ev) => {
+      const evTags = (ev.tags || "").split(",").filter(Boolean);
+      return evTags.some((t) => activeTagFilters.has(t));
+    });
+  }
+
+  if (!filtered.length) {
+    slider.innerHTML = `<p id="event-empty">Keine Events gefunden.</p>`;
+    return;
+  }
+
+  slider.innerHTML = filtered.map((ev) => {
+    const tags = (ev.tags || "").split(",").filter(Boolean);
+    const bgStyle = ev.image_url ? ` style="background-image:url('${ev.image_url}')"` : "";
+    return `
+      <div class="event-card"${bgStyle}>
+        <div class="event-date-badge">${escapeHtml(formatEventDate(ev.event_date, ev.event_time))}</div>
+        <h3>${escapeHtml(ev.title)}</h3>
+        <div class="event-tags">${tags.map((t) => `<span class="event-tag-chip">${escapeHtml(t)}</span>`).join("")}</div>
+        ${ev.description ? `<p class="event-desc">${escapeHtml(ev.description)}</p>` : ""}
+      </div>`;
+  }).join("");
+}
+
 fetch("/api/pages/programm")
   .then(r => r.json())
   .then(data => {
@@ -43,6 +216,17 @@ fetch("/api/pages/programm")
     }
   })
   .catch(() => {});
+
+fetch("/api/events")
+  .then((r) => r.json())
+  .then((events) => {
+    allEvents = events;
+    buildFilters();
+    renderEvents();
+  })
+  .catch(() => {
+    document.getElementById("event-slider").innerHTML = "<p id='event-empty'>Events konnten nicht geladen werden.</p>";
+  });
 </script>
 </body>
 </html>
