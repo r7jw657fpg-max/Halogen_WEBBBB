@@ -11,6 +11,34 @@
   main { padding:32px; max-width:800px; }
   section { margin-bottom:40px; padding:20px; background:#222; border-radius:10px; }
   h2 { margin-top:0; font-size:1.1rem; text-transform:uppercase; letter-spacing:0.05em; }
+  .panel-window {
+    background:#1a1a1a;
+    border:1px solid #3a3a3a;
+    border-radius:12px;
+    padding:20px;
+    margin-bottom:20px;
+  }
+  .panel-window h3 {
+    margin:0 0 14px;
+    font-size:1rem;
+    text-transform:uppercase;
+    letter-spacing:0.04em;
+    color:#ffb703;
+    padding-bottom:10px;
+    border-bottom:1px solid #333;
+  }
+  .panel-extra {
+    margin-top:24px;
+    padding-top:20px;
+    border-top:1px dashed #444;
+  }
+  .panel-extra h4 {
+    margin:0 0 4px;
+    font-size:0.8rem;
+    text-transform:uppercase;
+    letter-spacing:0.05em;
+    color:#999;
+  }
   label { display:block; margin:12px 0 4px; font-size:0.85rem; color:#bbb; }
   input[type=text], textarea { width:100%; padding:8px; border-radius:6px; border:1px solid #444; background:#111; color:#f4f1ea; font-family:inherit; }
   textarea { min-height:100px; }
@@ -44,9 +72,26 @@
   </section>
 
   <section>
-    <h2>Events (Programm-Seite)</h2>
+    <h2>Dateien (PDF, Bilder, etc.)</h2>
+    <p style="font-size:0.85rem; color:#999; margin-top:0;">
+      Datei hochladen. Bei PDFs gibt es direkt einen Einbett-Code zum Kopieren, damit das PDF
+      auf einer Unterseite als Vorschau angezeigt wird, statt nur als Link.
+    </p>
+    <input type="file" id="generic-file">
+    <button id="generic-upload-btn">Hochladen</button>
+    <span class="status" id="generic-status"></span>
+    <div id="generic-result" style="margin-top:10px; word-break:break-all;"></div>
+  </section>
+
+</main>
+
+<!-- Wird per JS in das zugehörige Panel-Fenster (Programm) verschoben -->
+<template id="events-template">
+  <div class="panel-extra">
+    <h4>Zugehörige Funktionalität</h4>
+    <h3 style="margin:0 0 12px; font-size:0.95rem;">Events</h3>
     <div id="events-list" style="margin-bottom:20px;"></div>
-    <h3 style="font-size:0.95rem; text-transform:uppercase; letter-spacing:0.05em; margin:0 0 8px;">Neuer Event / Bearbeiten</h3>
+    <h4 style="margin:0 0 8px;">Neuer Event / Bearbeiten</h4>
     <input type="hidden" id="event-id">
     <label>Titel</label>
     <input type="text" id="event-title">
@@ -73,29 +118,20 @@
       <button type="button" id="event-cancel-btn" style="background:#444; color:#f4f1ea;">Abbrechen / Neu</button>
     </div>
     <span class="status" id="event-status"></span>
-  </section>
+  </div>
+</template>
 
-  <section>
-    <h2>Dateien (PDF, Bilder, etc.)</h2>
-    <p style="font-size:0.85rem; color:#999; margin-top:0;">
-      Datei hochladen. Bei PDFs gibt es direkt einen Einbett-Code zum Kopieren, damit das PDF
-      auf einer Unterseite als Vorschau angezeigt wird, statt nur als Link.
-    </p>
-    <input type="file" id="generic-file">
-    <button id="generic-upload-btn">Hochladen</button>
-    <span class="status" id="generic-status"></span>
-    <div id="generic-result" style="margin-top:10px; word-break:break-all;"></div>
-  </section>
-
-  <section>
-    <h2>Anmeldungen (Mitglieder)</h2>
+<!-- Wird per JS in das zugehörige Seiten-Fenster (Anmeldung) verschoben -->
+<template id="memberships-template">
+  <div class="panel-extra">
+    <h4>Zugehörige Funktionalität</h4>
+    <h3 style="margin:0 0 12px; font-size:0.95rem;">Anmeldungen (Mitglieder)</h3>
     <button type="button" id="reload-memberships-btn">Aktualisieren</button>
     <button type="button" id="csv-download-btn">Als CSV herunterladen</button>
     <span class="status" id="memberships-status"></span>
     <div id="memberships-table-wrap" style="margin-top:14px; overflow-x:auto;"></div>
-  </section>
-
-</main>
+  </div>
+</template>
 
 <script>
 const PANEL_SLOTS = [
@@ -203,9 +239,9 @@ async function loadPanelsAndPages() {
     imageUrls[n] = siteContent[`panel_${n}_image_url`] || "";
 
     const wrap = document.createElement("div");
-    wrap.style.cssText = "margin-bottom:28px; padding-bottom:24px; border-bottom:1px solid #333;";
+    wrap.className = "panel-window";
     wrap.innerHTML = `
-      <h3 style="font-size:0.95rem; text-transform:uppercase; letter-spacing:0.04em; margin:0 0 12px;">
+      <h3>
         Panel ${n}${slot.pageSlug ? ` – ${slot.pageSlug}` : slot.isCommunity ? " – Community" : ""}
       </h3>
       <div class="grid">
@@ -232,6 +268,7 @@ async function loadPanelsAndPages() {
         <button type="button" class="slot-save-btn" data-panel="${n}" data-slug="${slot.pageSlug || ""}">Speichern</button>
       </div>
       <span class="status" id="slot_status_${n}"></span>
+      <div id="panel-extra-${n}"></div>
     `;
     editor.appendChild(wrap);
   }
@@ -299,14 +336,16 @@ async function loadOrphanPages() {
     const data = await fetch(`/api/pages/${slug}`).then(r => r.json());
     orphanImageUrls[slug] = data.image_url || "";
     const wrap = document.createElement("div");
-    wrap.style.marginBottom = "24px";
+    wrap.className = "panel-window";
     wrap.innerHTML = `
-      <label>${slug} – Titel</label>
+      <h3>${slug}</h3>
+      <label>Titel</label>
       <input type="text" id="orphan_title_${slug}" value="${escapeHtml(data.title || "")}">
-      <label>${slug} – Inhalt (HTML erlaubt)</label>
+      <label>Inhalt (HTML erlaubt)</label>
       <textarea id="orphan_content_${slug}">${data.content || ""}</textarea>
       <button type="button" class="orphan-save-btn" data-slug="${slug}">Speichern</button>
       <span class="status" id="orphan_status_${slug}"></span>
+      <div id="orphan-extra-${slug}"></div>
     `;
     editor.appendChild(wrap);
   }
@@ -415,62 +454,67 @@ async function loadEvents() {
   });
 }
 
-document.getElementById("event-file").addEventListener("change", async (e) => {
-  const file = e.target.files[0];
-  if (!file) return;
-  const status = document.getElementById("event-img-status");
-  try {
-    const url = await uploadFile(
-      file,
-      (p) => { status.textContent = `Lädt hoch... ${Math.round(p * 100)}%`; },
-      (msg) => { status.textContent = msg; }
-    );
-    currentEventImageUrl = url;
-    document.getElementById("event-preview").src = url;
-    status.textContent = "Bild bereit";
-  } catch (err) {
-    status.textContent = "Fehler: " + (err.message || "Upload fehlgeschlagen");
-    console.error(err);
-  }
-});
+// Die Events-Bedienelemente leben im per Template geklonten DOM-Stück
+// (siehe init()), existieren also erst nach dem Klonen – deshalb hier als
+// Funktion statt als Top-Level-Listener.
+function wireEvents() {
+  document.getElementById("event-file").addEventListener("change", async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const status = document.getElementById("event-img-status");
+    try {
+      const url = await uploadFile(
+        file,
+        (p) => { status.textContent = `Lädt hoch... ${Math.round(p * 100)}%`; },
+        (msg) => { status.textContent = msg; }
+      );
+      currentEventImageUrl = url;
+      document.getElementById("event-preview").src = url;
+      status.textContent = "Bild bereit";
+    } catch (err) {
+      status.textContent = "Fehler: " + (err.message || "Upload fehlgeschlagen");
+      console.error(err);
+    }
+  });
 
-document.getElementById("event-save-btn").addEventListener("click", async () => {
-  const id = document.getElementById("event-id").value;
-  const title = document.getElementById("event-title").value.trim();
-  const event_date = document.getElementById("event-date").value;
-  const event_time = document.getElementById("event-time").value;
-  const description = document.getElementById("event-description").value;
-  const tags = getSelectedEventTags().join(",");
-  const status = document.getElementById("event-status");
+  document.getElementById("event-save-btn").addEventListener("click", async () => {
+    const id = document.getElementById("event-id").value;
+    const title = document.getElementById("event-title").value.trim();
+    const event_date = document.getElementById("event-date").value;
+    const event_time = document.getElementById("event-time").value;
+    const description = document.getElementById("event-description").value;
+    const tags = getSelectedEventTags().join(",");
+    const status = document.getElementById("event-status");
 
-  if (!title || !event_date) {
-    status.textContent = "Titel und Datum sind erforderlich";
-    return;
-  }
+    if (!title || !event_date) {
+      status.textContent = "Titel und Datum sind erforderlich";
+      return;
+    }
 
-  const body = { title, description, event_date, event_time, tags, image_url: currentEventImageUrl };
-  try {
-    const res = await fetch(id ? `/api/admin/events/${id}` : "/api/admin/events", {
-      method: id ? "PUT" : "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || `Server antwortete mit ${res.status}`);
-    status.textContent = "Gespeichert ✓";
+    const body = { title, description, event_date, event_time, tags, image_url: currentEventImageUrl };
+    try {
+      const res = await fetch(id ? `/api/admin/events/${id}` : "/api/admin/events", {
+        method: id ? "PUT" : "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || `Server antwortete mit ${res.status}`);
+      status.textContent = "Gespeichert ✓";
+      resetEventForm();
+      loadEvents();
+    } catch (err) {
+      status.textContent = "Fehler: " + err.message;
+      console.error(err);
+    }
+    setTimeout(() => status.textContent = "", 3500);
+  });
+
+  document.getElementById("event-cancel-btn").addEventListener("click", () => {
     resetEventForm();
-    loadEvents();
-  } catch (err) {
-    status.textContent = "Fehler: " + err.message;
-    console.error(err);
-  }
-  setTimeout(() => status.textContent = "", 3500);
-});
-
-document.getElementById("event-cancel-btn").addEventListener("click", () => {
-  resetEventForm();
-  document.getElementById("event-status").textContent = "";
-});
+    document.getElementById("event-status").textContent = "";
+  });
+}
 
 async function loadMemberships() {
   const status = document.getElementById("memberships-status");
@@ -510,31 +554,34 @@ async function loadMemberships() {
   }
 }
 
-document.getElementById("reload-memberships-btn").addEventListener("click", loadMemberships);
+// Genauso wie wireEvents(): existiert erst nach dem Klonen des Templates.
+function wireMemberships() {
+  document.getElementById("reload-memberships-btn").addEventListener("click", loadMemberships);
 
-document.getElementById("csv-download-btn").addEventListener("click", () => {
-  if (!membershipsCache.length) return;
-  const escapeCsv = (str) => {
-    let s = String(str);
-    // Schutz gegen CSV/Formel-Injection: Felder, die wie eine Excel-Formel
-    // aussehen (=, +, -, @ am Anfang), werden entschärft.
-    if (/^[=+\-@]/.test(s)) s = "'" + s;
-    return `"${s.replace(/"/g, '""')}"`;
-  };
-  const header = ["Name", "E-Mail", "Mitglied seit", "Angemeldet am"];
-  const lines = [header.join(",")];
-  for (const r of membershipsCache) {
-    lines.push([r.name, r.email, r.joined_date, r.created_at].map(escapeCsv).join(","));
-  }
-  const csv = lines.join("\r\n");
-  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = "halogen-mitglieder.csv";
-  a.click();
-  URL.revokeObjectURL(url);
-});
+  document.getElementById("csv-download-btn").addEventListener("click", () => {
+    if (!membershipsCache.length) return;
+    const escapeCsv = (str) => {
+      let s = String(str);
+      // Schutz gegen CSV/Formel-Injection: Felder, die wie eine Excel-Formel
+      // aussehen (=, +, -, @ am Anfang), werden entschärft.
+      if (/^[=+\-@]/.test(s)) s = "'" + s;
+      return `"${s.replace(/"/g, '""')}"`;
+    };
+    const header = ["Name", "E-Mail", "Mitglied seit", "Angemeldet am"];
+    const lines = [header.join(",")];
+    for (const r of membershipsCache) {
+      lines.push([r.name, r.email, r.joined_date, r.created_at].map(escapeCsv).join(","));
+    }
+    const csv = lines.join("\r\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "halogen-mitglieder.csv";
+    a.click();
+    URL.revokeObjectURL(url);
+  });
+}
 
 document.getElementById("hero-upload-btn").addEventListener("click", async () => {
   const fileInput = document.getElementById("hero-file");
@@ -608,12 +655,24 @@ document.addEventListener("click", (e) => {
   }
 });
 
-loadContent();
-loadPanelsAndPages();
-loadOrphanPages();
-loadMemberships();
-renderEventTagCheckboxes([]);
-loadEvents();
+(async function init() {
+  await loadContent();
+  await loadPanelsAndPages();
+  await loadOrphanPages();
+
+  // Zugehörige Funktionalität ins jeweilige Panel-/Seiten-Fenster hängen,
+  // statt sie als eigene lose Sektion weiter unten auf der Seite zu zeigen.
+  document.getElementById("panel-extra-1")
+    .appendChild(document.getElementById("events-template").content.cloneNode(true));
+  document.getElementById("orphan-extra-anmeldung")
+    .appendChild(document.getElementById("memberships-template").content.cloneNode(true));
+
+  wireEvents();
+  wireMemberships();
+  renderEventTagCheckboxes([]);
+  await loadEvents();
+  await loadMemberships();
+})();
 </script>
 </body>
 </html>
