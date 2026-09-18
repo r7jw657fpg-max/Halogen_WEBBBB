@@ -76,7 +76,11 @@ INSERT OR IGNORE INTO site_content (key, value) VALUES
   ('panel_1_image_url', ''),
   ('panel_2_image_url', ''),
   ('panel_3_image_url', ''),
-  ('panel_4_image_url', '');
+  ('panel_4_image_url', ''),
+  ('panel_1_color', '#ffb703'),
+  ('panel_2_color', '#4dd8ff'),
+  ('panel_3_color', '#ff5ea8'),
+  ('panel_4_color', '#6be675');
 
 INSERT OR IGNORE INTO pages (slug, title, content) VALUES
   ('programm', 'Programm', '<p>Hier steht bald das Programm.</p>'),

@@ -254,6 +254,8 @@ async function loadPanelsAndPages() {
           <input type="text" id="panel_${n}_link" value="${escapeHtml(siteContent[`panel_${n}_link`] || "")}">
         </div>
       </div>
+      <label>Röhren-Farbe</label>
+      <input type="color" id="panel_${n}_color" value="${escapeHtml(siteContent[`panel_${n}_color`] || "#ffb703")}" style="width:70px; height:36px; padding:2px; border-radius:6px; border:1px solid #444; background:#111; cursor:pointer;">
       ${slot.pageSlug ? `
         <label>Seiten-Titel</label>
         <input type="text" id="page_title_${slot.pageSlug}" value="${escapeHtml(pageDataBySlug[slot.pageSlug].title || "")}">
@@ -305,6 +307,7 @@ async function loadPanelsAndPages() {
           [`panel_${n}_label`]: document.getElementById(`panel_${n}_label`).value,
           [`panel_${n}_link`]: document.getElementById(`panel_${n}_link`).value,
           [`panel_${n}_image_url`]: imageUrls[n] || "",
+          [`panel_${n}_color`]: document.getElementById(`panel_${n}_color`).value,
         });
         if (slug) {
           const title = document.getElementById(`page_title_${slug}`).value;

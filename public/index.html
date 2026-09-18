@@ -6,9 +6,7 @@
 <title>Kulturverein Halogen</title>
 <style>
   :root {
-    --panel-bg: rgba(15, 15, 15, 0.82);
     --panel-fg: #f4f1ea;
-    --accent: #ffb703;
   }
   * { box-sizing: border-box; }
   html, body {
@@ -54,49 +52,111 @@
   }
   #wordmark-left { left: 18px; }
   #wordmark-right { right: 18px; }
-  .panel {
-    position: absolute;
-    width: 190px;
-    height: 190px;
-    border-radius: 16px;
-    background: var(--panel-bg);
-    background-size: cover;
-    background-position: center;
-    color: var(--panel-fg);
+  #pillar-container {
+    position: fixed;
+    top: 140px;
+    left: 0;
+    right: 0;
+    bottom: 60px;
+    display: flex;
+    align-items: stretch;
+    justify-content: space-evenly;
+    padding: 0 80px;
+    z-index: 3;
+  }
+  .tube-pillar {
+    position: relative;
     display: flex;
     align-items: center;
     justify-content: center;
-    text-align: center;
+    gap: 14px;
+    min-width: 90px;
     cursor: pointer;
-    border: 1px solid rgba(255,255,255,0.15);
-    backdrop-filter: blur(2px);
-    transition: background 0.2s ease, filter 0.15s ease;
-    will-change: transform;
-    z-index: 3;
     user-select: none;
-    overflow: hidden;
   }
-  .panel:not(.has-image):hover {
-    background: var(--accent);
-    color: #111;
+  .pillar-bg {
+    position: absolute;
+    inset: -50px -70px;
+    background-size: cover;
+    background-position: center;
+    opacity: 0.32;
+    filter: blur(0.5px) brightness(0.8);
+    -webkit-mask-image: radial-gradient(ellipse at center, black 32%, transparent 70%);
+    mask-image: radial-gradient(ellipse at center, black 32%, transparent 70%);
+    z-index: 0;
+    pointer-events: none;
   }
-  .panel.has-image:hover {
-    filter: brightness(1.15);
+  .tube-column-v {
+    position: relative;
+    width: 20px;
+    height: 100%;
+    z-index: 1;
   }
-  .panel.has-image::before {
-    content: "";
+  .tube-glow-v {
+    position: absolute;
+    inset: -30px -70px;
+    opacity: 0;
+    filter: blur(3px);
+    pointer-events: none;
+    transition: opacity 0.05s linear;
+  }
+  .tube-light-v {
     position: absolute;
     inset: 0;
-    background: linear-gradient(180deg, rgba(0,0,0,0.1), rgba(0,0,0,0.6));
+    border-radius: 999px;
+    opacity: 0.15;
+    transition: opacity 0.05s linear;
   }
-  .panel-label {
+  .tube-light-v::before, .tube-light-v::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 34px;
+    height: 11px;
+    background: #333;
+    border-radius: 3px;
+    z-index: 2;
+  }
+  .tube-light-v::before { top: -13px; }
+  .tube-light-v::after { bottom: -13px; }
+  .pillar-label-v {
     position: relative;
     z-index: 1;
-    font-size: 1.1rem;
-    font-weight: 600;
-    letter-spacing: 0.03em;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    align-items: center;
+    color: #ddd;
     text-transform: uppercase;
-    padding: 0 12px;
+    letter-spacing: 0.02em;
+    font-weight: 600;
+    pointer-events: none;
+  }
+  .pillar-label-v span {
+    display: block;
+    line-height: 1;
+  }
+  @media (max-width: 700px) {
+    /* Nebeneinander gestapelte Säulen wrappen unsauber auf schmalen
+       Screens (Labels unterschiedlicher Länge landen versetzt) – auf
+       Mobile stattdessen eine saubere Zeile pro Panel, untereinander. */
+    #pillar-container {
+      flex-direction: column;
+      align-items: stretch;
+      justify-content: space-evenly;
+      gap: 14px;
+      padding: 0 24px 20px;
+      top: 100px;
+      bottom: 0;
+    }
+    .tube-pillar {
+      flex: 1;
+      min-width: 0;
+      justify-content: flex-start;
+      gap: 16px;
+    }
   }
 
   #tube-fixture {
@@ -187,7 +247,7 @@
   <div id="hero"></div>
   <div id="wordmark-left" class="wordmark-vertical"></div>
   <div id="wordmark-right" class="wordmark-vertical"></div>
-  <div id="panel-container"></div>
+  <div id="pillar-container"></div>
 
   <div id="tube-fixture">
     <div id="tube-glow"></div>
@@ -219,7 +279,10 @@
   function sizeVerticalWord(container) {
     const available = window.innerHeight - 56; // minus vertikales Padding
     const count = container.children.length;
-    const fontSize = Math.max(8, (available / count) * 0.82);
+    // Auf schmalen Screens wären die Buchstaben sonst breiter als der
+    // Platz neben den Panel-Säulen hergibt – zusätzlich an die Breite deckeln.
+    const maxByWidth = window.innerWidth * 0.13;
+    const fontSize = Math.max(8, Math.min((available / count) * 0.82, maxByWidth));
     container.style.fontSize = fontSize + "px";
   }
   const wordLeft = document.getElementById("wordmark-left");
@@ -237,7 +300,7 @@
 
 <script>
 (async function () {
-  const container = document.getElementById("panel-container");
+  const container = document.getElementById("pillar-container");
   const hero = document.getElementById("hero");
 
   let content = {};
@@ -255,20 +318,36 @@
     label: content[`panel_${i}_label`] || `Panel ${i}`,
     link: content[`panel_${i}_link`] || "#",
     image: content[`panel_${i}_image_url`] || "",
+    color: content[`panel_${i}_color`] || "#ffb703",
   }));
 
-  const SIZE = 190;
-  const SPEED = 0.7;
+  function hexToRgb(hex) {
+    const clean = (hex || "#ffb703").replace("#", "");
+    const full = clean.length === 3 ? clean.split("").map(c => c + c).join("") : clean;
+    const num = parseInt(full, 16) || 0xffb703;
+    return [(num >> 16) & 255, (num >> 8) & 255, num & 255];
+  }
 
-  // Klont das angeklickte Panel und animiert es auf volle Bildschirmgröße,
-  // bevor zur Unterseite navigiert wird ("reinzoomen" ins Panel).
+  function buildVerticalLabel(el, word) {
+    el.innerHTML = "";
+    for (const ch of word) {
+      const span = document.createElement("span");
+      span.textContent = ch;
+      el.appendChild(span);
+    }
+  }
+
+  function sizeVerticalLabel(el, availablePx) {
+    const count = el.children.length || 1;
+    const fontSize = Math.max(7, (availablePx / count) * 0.78);
+    el.style.fontSize = fontSize + "px";
+  }
+
+  // Klont die angeklickte Säule und animiert sie auf volle Bildschirmgröße,
+  // bevor zur Unterseite navigiert wird ("reinzoomen").
   function zoomIntoPanel(el, link) {
     const rect = el.getBoundingClientRect();
     const clone = el.cloneNode(true);
-    // Die Bounce-Animation setzt auf dem Original ein inline transform
-    // (translate(x,y)); cloneNode kopiert das mit. Ohne es zu löschen,
-    // würde sich der Klon zusätzlich zu left/top um denselben Betrag
-    // verschieben und immer aus der falschen Ecke "reinzoomen".
     clone.style.transform = "none";
     clone.style.position = "fixed";
     clone.style.left = rect.left + "px";
@@ -292,82 +371,76 @@
     setTimeout(() => { window.location.href = link; }, 520);
   }
 
-  const panels = panelDefs.map((def, i) => {
-    const el = document.createElement("div");
-    el.className = "panel";
-    if (def.image) {
-      el.classList.add("has-image");
-      el.style.backgroundImage = `url("${def.image}")`;
+  // Kurze Variante der Flacker-Dramaturgie von der Decken-Röhre im
+  // Dunkel-Intro, pro Säule in ihrer eigenen Farbe. Deutlich kürzer als
+  // das einmalige Intro, weil das bei jedem einzelnen Klick abläuft.
+  function playPillarFlicker(tubeLight, tubeGlow, onDone) {
+    const steps = [
+      [30, 0.9], [35, 0.15], [70, 0.15],
+      [20, 0.8], [20, 0.15], [15, 1], [10, 0.15], [15, 1], [10, 0.15],
+      [140, 1],
+    ];
+    let t = 0;
+    for (const [delay, brightness] of steps) {
+      t += delay;
+      setTimeout(() => {
+        tubeLight.style.opacity = brightness;
+        tubeGlow.style.opacity = brightness * 0.85;
+      }, t);
     }
-    const labelSpan = document.createElement("span");
-    labelSpan.className = "panel-label";
-    labelSpan.textContent = def.label;
-    el.appendChild(labelSpan);
-    el.addEventListener("click", () => {
-      if (def.link === "#") return;
-      zoomIntoPanel(el, def.link);
-    });
-    container.appendChild(el);
+    setTimeout(onDone, t + 150);
+  }
 
-    const angle = Math.random() * Math.PI * 2;
-    return {
-      el,
-      x: Math.random() * (window.innerWidth - SIZE),
-      y: Math.random() * (window.innerHeight - SIZE),
-      vx: Math.cos(angle) * SPEED,
-      vy: Math.sin(angle) * SPEED,
-    };
+  const pillars = panelDefs.map((def) => {
+    const pillar = document.createElement("div");
+    pillar.className = "tube-pillar";
+
+    if (def.image) {
+      const bg = document.createElement("div");
+      bg.className = "pillar-bg";
+      bg.style.backgroundImage = `url("${def.image}")`;
+      pillar.appendChild(bg);
+    }
+
+    const column = document.createElement("div");
+    column.className = "tube-column-v";
+    const glow = document.createElement("div");
+    glow.className = "tube-glow-v";
+    const light = document.createElement("div");
+    light.className = "tube-light-v";
+    column.appendChild(glow);
+    column.appendChild(light);
+
+    const label = document.createElement("div");
+    label.className = "pillar-label-v";
+    buildVerticalLabel(label, def.label.toUpperCase());
+
+    pillar.appendChild(column);
+    pillar.appendChild(label);
+    container.appendChild(pillar);
+
+    const [r, g, b] = hexToRgb(def.color);
+    light.style.background = `linear-gradient(180deg, #ffffff, rgb(${r},${g},${b}))`;
+    light.style.boxShadow = `0 0 14px 4px rgba(${r},${g},${b},0.9), 0 0 36px 10px rgba(${r},${g},${b},0.55)`;
+    glow.style.background = `radial-gradient(ellipse at center, rgba(${r},${g},${b},0.55), rgba(${r},${g},${b},0) 70%)`;
+
+    let started = false;
+    pillar.addEventListener("click", () => {
+      if (started || def.link === "#") return;
+      started = true;
+      playPillarFlicker(light, glow, () => zoomIntoPanel(pillar, def.link));
+    });
+
+    return { pillar, label };
   });
 
-  function step() {
-    const w = window.innerWidth;
-    const h = window.innerHeight;
-
-    for (const p of panels) {
-      p.x += p.vx;
-      p.y += p.vy;
-
-      if (p.x <= 0) { p.x = 0; p.vx *= -1; }
-      if (p.x + SIZE >= w) { p.x = w - SIZE; p.vx *= -1; }
-      if (p.y <= 0) { p.y = 0; p.vy *= -1; }
-      if (p.y + SIZE >= h) { p.y = h - SIZE; p.vy *= -1; }
-
-      p.el.style.transform = `translate(${p.x}px, ${p.y}px)`;
+  function resizeLabels() {
+    for (const { pillar, label } of pillars) {
+      sizeVerticalLabel(label, pillar.clientHeight - 20);
     }
-
-    // Panel-zu-Panel-Kollision (Kreis-Annäherung): Positionen sauber
-    // auseinanderschieben, damit sich die Panels nicht ineinander
-    // verhaken, plus elastische Reflexion entlang der Kollisionsachse.
-    const MIN_DIST = SIZE * 0.9;
-    for (let i = 0; i < panels.length; i++) {
-      for (let j = i + 1; j < panels.length; j++) {
-        const a = panels[i], b = panels[j];
-        const dx = (b.x + SIZE/2) - (a.x + SIZE/2);
-        const dy = (b.y + SIZE/2) - (a.y + SIZE/2);
-        const dist = Math.hypot(dx, dy);
-        if (dist > 0 && dist < MIN_DIST) {
-          const nx = dx / dist;
-          const ny = dy / dist;
-
-          const overlap = MIN_DIST - dist;
-          a.x -= nx * overlap / 2;
-          a.y -= ny * overlap / 2;
-          b.x += nx * overlap / 2;
-          b.y += ny * overlap / 2;
-
-          const avn = a.vx * nx + a.vy * ny;
-          const bvn = b.vx * nx + b.vy * ny;
-          a.vx += (bvn - avn) * nx;
-          a.vy += (bvn - avn) * ny;
-          b.vx += (avn - bvn) * nx;
-          b.vy += (avn - bvn) * ny;
-        }
-      }
-    }
-
-    requestAnimationFrame(step);
   }
-  requestAnimationFrame(step);
+  resizeLabels();
+  window.addEventListener("resize", resizeLabels);
 })();
 </script>
 
