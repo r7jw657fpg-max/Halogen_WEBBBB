@@ -251,7 +251,7 @@
     hero.style.backgroundImage = `url("${content.hero_image_url}")`;
   }
 
-  const panelDefs = [1, 2, 3, 4, 5].map(i => ({
+  const panelDefs = [1, 2, 3, 4].map(i => ({
     label: content[`panel_${i}_label`] || `Panel ${i}`,
     link: content[`panel_${i}_link`] || "#",
     image: content[`panel_${i}_image_url`] || "",
@@ -405,6 +405,18 @@
     overlay.style.pointerEvents = "none";
     playFlicker();
   });
+
+  // Wer über den "Zurück"-Link einer Unterseite kommt, hat das Intro schon
+  // gesehen – sofort in den enthüllten Zustand springen statt neu zu starten.
+  if (new URLSearchParams(location.search).has("skip_intro")) {
+    started = true;
+    overlay.style.transition = "none";
+    overlay.classList.add("revealing", "hidden");
+    overlay.style.pointerEvents = "none";
+    tubeLight.style.opacity = 1;
+    tubeGlow.style.opacity = 0.8;
+    history.replaceState(null, "", location.pathname);
+  }
 })();
 </script>
 </body>

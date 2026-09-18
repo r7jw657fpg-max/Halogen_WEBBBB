@@ -67,19 +67,16 @@ INSERT OR IGNORE INTO site_content (key, value) VALUES
   ('hero_image_url', ''),
   ('panel_1_label', 'Programm'),
   ('panel_1_link', '/programm/'),
-  ('panel_2_label', 'Anmeldung'),
-  ('panel_2_link', '/anmeldung/'),
+  ('panel_2_label', 'Community'),
+  ('panel_2_link', '/community/'),
   ('panel_3_label', 'Produkte'),
   ('panel_3_link', '/produkte/'),
   ('panel_4_label', 'Weiteres'),
   ('panel_4_link', '/weiteres/'),
-  ('panel_5_label', 'Community'),
-  ('panel_5_link', '/community/'),
   ('panel_1_image_url', ''),
   ('panel_2_image_url', ''),
   ('panel_3_image_url', ''),
-  ('panel_4_image_url', ''),
-  ('panel_5_image_url', '');
+  ('panel_4_image_url', '');
 
 INSERT OR IGNORE INTO pages (slug, title, content) VALUES
   ('programm', 'Programm', '<p>Hier steht bald das Programm.</p>'),

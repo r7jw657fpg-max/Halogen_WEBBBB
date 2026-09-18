@@ -33,15 +33,14 @@
   </section>
 
   <section>
-    <h2>Panels (Startseite)</h2>
-    <div class="grid" id="panels-grid"></div>
-    <button id="save-panels-btn">Panels speichern</button>
-    <span class="status" id="panels-status"></span>
+    <h2>Panels & Unterseiten</h2>
+    <p style="font-size:0.85rem; color:#999; margin-top:0;">Jedes Startseiten-Panel und seine Unterseite gehören zusammen – hier zusammen bearbeitet.</p>
+    <div id="panels-pages-editor"></div>
   </section>
 
   <section>
-    <h2>Unterseiten</h2>
-    <div id="pages-editor"></div>
+    <h2>Weitere Seiten (nicht auf der Startseite verlinkt)</h2>
+    <div id="orphan-pages-editor"></div>
   </section>
 
   <section>
@@ -78,7 +77,10 @@
 
   <section>
     <h2>Dateien (PDF, Bilder, etc.)</h2>
-    <p style="font-size:0.85rem; color:#999; margin-top:0;">Datei hochladen, dann den Link in den HTML-Inhalt einer Unterseite einfügen, z. B. <code>&lt;a href="LINK"&gt;Programm als PDF&lt;/a&gt;</code>.</p>
+    <p style="font-size:0.85rem; color:#999; margin-top:0;">
+      Datei hochladen. Bei PDFs gibt es direkt einen Einbett-Code zum Kopieren, damit das PDF
+      auf einer Unterseite als Vorschau angezeigt wird, statt nur als Link.
+    </p>
     <input type="file" id="generic-file">
     <button id="generic-upload-btn">Hochladen</button>
     <span class="status" id="generic-status"></span>
@@ -96,8 +98,13 @@
 </main>
 
 <script>
-const PAGE_SLUGS = ["programm", "anmeldung", "produkte", "weiteres"];
-const PAGE_TO_PANEL = { programm: 1, anmeldung: 2, produkte: 3, weiteres: 4 };
+const PANEL_SLOTS = [
+  { panel: 1, pageSlug: "programm" },
+  { panel: 2, pageSlug: null, isCommunity: true },
+  { panel: 3, pageSlug: "produkte" },
+  { panel: 4, pageSlug: "weiteres" },
+];
+const ORPHAN_PAGE_SLUGS = ["anmeldung"];
 const EVENT_TAGS = ["Workshop", "Halogen Event", "Bar/Gastro-Betrieb", "Food Event", "Spiel/Turnier"];
 const CHUNK_SIZE = 8 * 1024 * 1024; // 8MB pro Chunk
 
@@ -178,90 +185,71 @@ async function uploadFile(file, onProgress, onStatus) {
 
 async function loadContent() {
   const content = await fetch("/api/content").then(r => r.json());
-
   document.getElementById("hero-preview").src = content.hero_image_url || "";
-
-  const grid = document.getElementById("panels-grid");
-  grid.innerHTML = "";
-  for (let i = 1; i <= 5; i++) {
-    grid.innerHTML += `
-      <div>
-        <label>Panel ${i} – Titel</label>
-        <input type="text" id="panel_${i}_label" value="${content[`panel_${i}_label`] || ""}">
-        <label>Panel ${i} – Link</label>
-        <input type="text" id="panel_${i}_link" value="${content[`panel_${i}_link`] || ""}">
-        <label>Panel ${i} – Bild</label>
-        <input type="file" id="panel_${i}_file" accept="image/*">
-        <span class="status" id="panel_${i}_img_status"></span>
-        <img class="preview" id="panel_${i}_preview" src="${content[`panel_${i}_image_url`] || ""}">
-      </div>`;
-  }
-
-  for (let i = 1; i <= 5; i++) {
-    document.getElementById(`panel_${i}_file`).addEventListener("change", async (e) => {
-      const file = e.target.files[0];
-      if (!file) return;
-      const status = document.getElementById(`panel_${i}_img_status`);
-      try {
-        const url = await uploadFile(
-          file,
-          (p) => { status.textContent = `Lädt hoch... ${Math.round(p * 100)}%`; },
-          (msg) => { status.textContent = msg; }
-        );
-        await saveContent({ [`panel_${i}_image_url`]: url });
-        document.getElementById(`panel_${i}_preview`).src = url;
-        status.textContent = "Gespeichert ✓";
-      } catch (err) {
-        status.textContent = "Fehler: " + (err.message || "Upload fehlgeschlagen");
-        console.error(err);
-      }
-      setTimeout(() => status.textContent = "", 3500);
-    });
-  }
 }
 
-async function loadPages() {
-  const editor = document.getElementById("pages-editor");
+async function loadPanelsAndPages() {
+  const editor = document.getElementById("panels-pages-editor");
   editor.innerHTML = "";
   const siteContent = await fetch("/api/content").then(r => r.json());
-  const pageImageUrls = {};
+  const imageUrls = {};
+  const pageDataBySlug = {};
 
-  for (const slug of PAGE_SLUGS) {
-    const data = await fetch(`/api/pages/${slug}`).then(r => r.json());
-    pageImageUrls[slug] = data.image_url || "";
-    const panelImageUrl = siteContent[`panel_${PAGE_TO_PANEL[slug]}_image_url`] || "";
+  for (const slot of PANEL_SLOTS) {
+    const n = slot.panel;
+    if (slot.pageSlug) {
+      pageDataBySlug[slot.pageSlug] = await fetch(`/api/pages/${slot.pageSlug}`).then(r => r.json());
+    }
+    imageUrls[n] = siteContent[`panel_${n}_image_url`] || "";
 
     const wrap = document.createElement("div");
-    wrap.style.marginBottom = "24px";
+    wrap.style.cssText = "margin-bottom:28px; padding-bottom:24px; border-bottom:1px solid #333;";
     wrap.innerHTML = `
-      <label>${slug} – Titel</label>
-      <input type="text" id="title_${slug}" value="${data.title || ""}">
-      <label>${slug} – Inhalt (HTML erlaubt)</label>
-      <textarea id="content_${slug}">${data.content || ""}</textarea>
-      <label>${slug} – Hintergrundbild</label>
-      <input type="file" id="bgimg_${slug}" accept="image/*">
-      <button type="button" class="use-panel-image-btn" data-slug="${slug}" ${panelImageUrl ? "" : "disabled"}>Gleiches Bild wie Panel verwenden</button>
-      <span class="status" id="bgimg_status_${slug}"></span>
-      <img class="preview" id="bgimg_preview_${slug}" src="${pageImageUrls[slug]}">
-      <button data-slug="${slug}" class="save-page-btn">Speichern</button>
-      <span class="status" id="status_${slug}"></span>
+      <h3 style="font-size:0.95rem; text-transform:uppercase; letter-spacing:0.04em; margin:0 0 12px;">
+        Panel ${n}${slot.pageSlug ? ` – ${slot.pageSlug}` : slot.isCommunity ? " – Community" : ""}
+      </h3>
+      <div class="grid">
+        <div>
+          <label>Panel-Titel</label>
+          <input type="text" id="panel_${n}_label" value="${escapeHtml(siteContent[`panel_${n}_label`] || "")}">
+        </div>
+        <div>
+          <label>Panel-Link</label>
+          <input type="text" id="panel_${n}_link" value="${escapeHtml(siteContent[`panel_${n}_link`] || "")}">
+        </div>
+      </div>
+      ${slot.pageSlug ? `
+        <label>Seiten-Titel</label>
+        <input type="text" id="page_title_${slot.pageSlug}" value="${escapeHtml(pageDataBySlug[slot.pageSlug].title || "")}">
+        <label>Seiten-Inhalt (HTML erlaubt)</label>
+        <textarea id="page_content_${slot.pageSlug}">${pageDataBySlug[slot.pageSlug].content || ""}</textarea>
+      ` : `<p style="font-size:0.85rem; color:#999;">Die Community-Seite hat einen fest eingebauten Inhalt (Login, Agenda, Mitglieder) – hier nur Titel/Link/Bild fürs Panel.</p>`}
+      <label>Bild (Panel-Hintergrund${slot.pageSlug ? " & Unterseiten-Hintergrund" : ""})</label>
+      <input type="file" id="panel_${n}_file" accept="image/*">
+      <span class="status" id="panel_${n}_img_status"></span>
+      <img class="preview" id="panel_${n}_preview" src="${imageUrls[n]}">
+      <div>
+        <button type="button" class="slot-save-btn" data-panel="${n}" data-slug="${slot.pageSlug || ""}">Speichern</button>
+      </div>
+      <span class="status" id="slot_status_${n}"></span>
     `;
     editor.appendChild(wrap);
   }
 
-  for (const slug of PAGE_SLUGS) {
-    document.getElementById(`bgimg_${slug}`).addEventListener("change", async (e) => {
+  for (const slot of PANEL_SLOTS) {
+    const n = slot.panel;
+    document.getElementById(`panel_${n}_file`).addEventListener("change", async (e) => {
       const file = e.target.files[0];
       if (!file) return;
-      const status = document.getElementById(`bgimg_status_${slug}`);
+      const status = document.getElementById(`panel_${n}_img_status`);
       try {
         const url = await uploadFile(
           file,
           (p) => { status.textContent = `Lädt hoch... ${Math.round(p * 100)}%`; },
           (msg) => { status.textContent = msg; }
         );
-        pageImageUrls[slug] = url;
-        document.getElementById(`bgimg_preview_${slug}`).src = url;
+        imageUrls[n] = url;
+        document.getElementById(`panel_${n}_preview`).src = url;
         status.textContent = "Bild bereit – bitte unten Speichern klicken";
       } catch (err) {
         status.textContent = "Fehler: " + (err.message || "Upload fehlgeschlagen");
@@ -270,31 +258,72 @@ async function loadPages() {
     });
   }
 
-  document.querySelectorAll(".use-panel-image-btn").forEach(btn => {
-    btn.addEventListener("click", () => {
+  document.querySelectorAll(".slot-save-btn").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const n = btn.dataset.panel;
       const slug = btn.dataset.slug;
-      const panelImageUrl = siteContent[`panel_${PAGE_TO_PANEL[slug]}_image_url`] || "";
-      if (!panelImageUrl) return;
-      pageImageUrls[slug] = panelImageUrl;
-      document.getElementById(`bgimg_preview_${slug}`).src = panelImageUrl;
-      document.getElementById(`bgimg_status_${slug}`).textContent = "Bild übernommen – bitte unten Speichern klicken";
+      const status = document.getElementById(`slot_status_${n}`);
+      try {
+        await saveContent({
+          [`panel_${n}_label`]: document.getElementById(`panel_${n}_label`).value,
+          [`panel_${n}_link`]: document.getElementById(`panel_${n}_link`).value,
+          [`panel_${n}_image_url`]: imageUrls[n] || "",
+        });
+        if (slug) {
+          const title = document.getElementById(`page_title_${slug}`).value;
+          const content = document.getElementById(`page_content_${slug}`).value;
+          const res = await fetch(`/api/admin/pages/${slug}`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ title, content, image_url: imageUrls[n] || "" }),
+          });
+          if (!res.ok) throw new Error(`Server antwortete mit ${res.status}`);
+        }
+        document.getElementById(`panel_${n}_img_status`).textContent = "";
+        status.textContent = "Gespeichert ✓";
+      } catch (err) {
+        status.textContent = "Fehler: " + (err.message || "Speichern fehlgeschlagen");
+        console.error(err);
+      }
+      setTimeout(() => status.textContent = "", 3500);
     });
   });
+}
 
-  document.querySelectorAll(".save-page-btn").forEach(btn => {
+async function loadOrphanPages() {
+  const editor = document.getElementById("orphan-pages-editor");
+  editor.innerHTML = "";
+  const orphanImageUrls = {};
+
+  for (const slug of ORPHAN_PAGE_SLUGS) {
+    const data = await fetch(`/api/pages/${slug}`).then(r => r.json());
+    orphanImageUrls[slug] = data.image_url || "";
+    const wrap = document.createElement("div");
+    wrap.style.marginBottom = "24px";
+    wrap.innerHTML = `
+      <label>${slug} – Titel</label>
+      <input type="text" id="orphan_title_${slug}" value="${escapeHtml(data.title || "")}">
+      <label>${slug} – Inhalt (HTML erlaubt)</label>
+      <textarea id="orphan_content_${slug}">${data.content || ""}</textarea>
+      <button type="button" class="orphan-save-btn" data-slug="${slug}">Speichern</button>
+      <span class="status" id="orphan_status_${slug}"></span>
+    `;
+    editor.appendChild(wrap);
+  }
+
+  document.querySelectorAll(".orphan-save-btn").forEach((btn) => {
     btn.addEventListener("click", async () => {
       const slug = btn.dataset.slug;
-      const title = document.getElementById(`title_${slug}`).value;
-      const content = document.getElementById(`content_${slug}`).value;
-      const status = document.getElementById(`status_${slug}`);
+      const status = document.getElementById(`orphan_status_${slug}`);
       try {
+        const title = document.getElementById(`orphan_title_${slug}`).value;
+        const content = document.getElementById(`orphan_content_${slug}`).value;
         const res = await fetch(`/api/admin/pages/${slug}`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ title, content, image_url: pageImageUrls[slug] || "" }),
+          body: JSON.stringify({ title, content, image_url: orphanImageUrls[slug] }),
         });
         if (!res.ok) throw new Error(`Server antwortete mit ${res.status}`);
-        document.getElementById(`bgimg_status_${slug}`).textContent = "";
         status.textContent = "Gespeichert ✓";
       } catch (err) {
         status.textContent = "Fehler: " + (err.message || "Speichern fehlgeschlagen");
@@ -527,37 +556,36 @@ document.getElementById("hero-upload-btn").addEventListener("click", async () =>
   setTimeout(() => status.textContent = "", 3500);
 });
 
-document.getElementById("save-panels-btn").addEventListener("click", async () => {
-  const status = document.getElementById("panels-status");
-  const body = {};
-  for (let i = 1; i <= 5; i++) {
-    body[`panel_${i}_label`] = document.getElementById(`panel_${i}_label`).value;
-    body[`panel_${i}_link`] = document.getElementById(`panel_${i}_link`).value;
-  }
-  try {
-    await saveContent(body);
-    status.textContent = "Gespeichert ✓";
-  } catch (err) {
-    status.textContent = "Fehler: " + (err.message || "Speichern fehlgeschlagen");
-    console.error(err);
-  }
-  setTimeout(() => status.textContent = "", 3500);
-});
-
 document.getElementById("generic-upload-btn").addEventListener("click", async () => {
   const fileInput = document.getElementById("generic-file");
   if (!fileInput.files[0]) return;
+  const file = fileInput.files[0];
   const status = document.getElementById("generic-status");
   try {
     const url = await uploadFile(
-      fileInput.files[0],
+      file,
       (p) => { status.textContent = `Lädt hoch... ${Math.round(p * 100)}%`; },
       (msg) => { status.textContent = msg; }
     );
     status.textContent = "Hochgeladen ✓";
-    document.getElementById("generic-result").innerHTML =
-      `<a href="${url}" target="_blank" style="color:#ffb703;">${url}</a> ` +
-      `<button type="button" class="copy-link-btn" data-url="${url}">Link kopieren</button>`;
+    const resultDiv = document.getElementById("generic-result");
+    const isPdf = file.type === "application/pdf" || /\.pdf$/i.test(file.name);
+
+    if (isPdf) {
+      const embedSnippet = `<iframe src="${url}" style="width:100%;height:600px;border:none;border-radius:8px;"></iframe>`;
+      resultDiv.innerHTML = `
+        <iframe src="${url}" style="width:100%; height:400px; border:1px solid #444; border-radius:6px; margin-bottom:10px;"></iframe>
+        <div>
+          <button type="button" class="copy-embed-btn" data-embed="${escapeHtml(embedSnippet)}">Einbett-Code kopieren</button>
+          <a href="${url}" target="_blank" style="color:#ffb703; margin-left:10px; font-size:0.85rem;">Direktlink öffnen</a>
+        </div>
+        <p style="font-size:0.8rem; color:#999; margin-top:8px;">Einbett-Code in den Seiteninhalt einfügen, dann wird das PDF direkt angezeigt statt nur verlinkt.</p>
+      `;
+    } else {
+      resultDiv.innerHTML =
+        `<a href="${url}" target="_blank" style="color:#ffb703;">${url}</a> ` +
+        `<button type="button" class="copy-link-btn" data-url="${url}">Link kopieren</button>`;
+    }
   } catch (err) {
     status.textContent = "Fehler: " + (err.message || "Upload fehlgeschlagen");
     console.error(err);
@@ -572,10 +600,17 @@ document.addEventListener("click", (e) => {
       setTimeout(() => e.target.textContent = "Link kopieren", 1500);
     });
   }
+  if (e.target.classList.contains("copy-embed-btn")) {
+    navigator.clipboard.writeText(e.target.dataset.embed).then(() => {
+      e.target.textContent = "Kopiert ✓";
+      setTimeout(() => e.target.textContent = "Einbett-Code kopieren", 1500);
+    });
+  }
 });
 
 loadContent();
-loadPages();
+loadPanelsAndPages();
+loadOrphanPages();
 loadMemberships();
 renderEventTagCheckboxes([]);
 loadEvents();

@@ -40,7 +40,7 @@
 </head>
 <body>
 <header>
-  <a class="back" href="/">&larr; Zurück</a>
+  <a class="back" href="/?skip_intro=1">&larr; Zurück</a>
   <span id="logout-wrap" style="display:none;"><button type="button" class="secondary small" id="logout-btn">Logout</button></span>
 </header>
 <main>
@@ -61,6 +61,7 @@
         <input type="password" id="login-password" autocomplete="current-password">
         <button type="button" id="login-btn">Einloggen</button>
         <span class="status" id="login-status"></span>
+        <p class="card-hint" style="margin-top:16px;">Noch kein Vereinsmitglied? <a href="/anmeldung/">Hier anmelden</a>.</p>
       </section>
     </div>
 
@@ -83,6 +84,7 @@
         </div>
         <button type="button" id="activate-btn">Zugang aktivieren</button>
         <span class="status" id="activate-status"></span>
+        <p class="card-hint" style="margin-top:16px;">Noch kein Vereinsmitglied? <a href="/anmeldung/">Hier anmelden</a>.</p>
       </section>
     </div>
   </div>
