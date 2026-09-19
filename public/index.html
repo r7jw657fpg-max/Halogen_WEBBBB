@@ -139,23 +139,18 @@
     line-height: 1;
   }
   @media (max-width: 700px) {
-    /* Nebeneinander gestapelte Säulen wrappen unsauber auf schmalen
-       Screens (Labels unterschiedlicher Länge landen versetzt) – auf
-       Mobile stattdessen eine saubere Zeile pro Panel, untereinander. */
+    /* Bleiben nebeneinander wie am Desktop, nur enger gepackt – die
+       Säulen-Breite pro Panel wird zusätzlich in JS gedeckelt, damit
+       die Buchstaben der Labels nicht in die Nachbarspalte laufen. */
     #pillar-container {
-      flex-direction: column;
-      align-items: stretch;
-      justify-content: space-evenly;
-      gap: 14px;
-      padding: 0 24px 20px;
+      gap: 6px;
+      padding: 0 56px 20px;
       top: 100px;
       bottom: 0;
     }
     .tube-pillar {
-      flex: 1;
       min-width: 0;
-      justify-content: flex-start;
-      gap: 16px;
+      gap: 6px;
     }
   }
 
@@ -281,7 +276,7 @@
     const count = container.children.length;
     // Auf schmalen Screens wären die Buchstaben sonst breiter als der
     // Platz neben den Panel-Säulen hergibt – zusätzlich an die Breite deckeln.
-    const maxByWidth = window.innerWidth * 0.13;
+    const maxByWidth = window.innerWidth * 0.085;
     const fontSize = Math.max(8, Math.min((available / count) * 0.82, maxByWidth));
     container.style.fontSize = fontSize + "px";
   }
@@ -337,9 +332,14 @@
     }
   }
 
-  function sizeVerticalLabel(el, availablePx) {
+  function sizeVerticalLabel(el, availableHeightPx, availableWidthPx) {
     const count = el.children.length || 1;
-    const fontSize = Math.max(7, (availablePx / count) * 0.78);
+    const byHeight = (availableHeightPx / count) * 0.78;
+    // Bei vielen schmalen Spalten nebeneinander (z. B. auf Mobile) darf ein
+    // einzelner Buchstabe nicht breiter werden als seine eigene Spalte,
+    // sonst läuft das Label in die Nachbarsäule hinein.
+    const byWidth = availableWidthPx ? availableWidthPx * 0.85 : Infinity;
+    const fontSize = Math.max(7, Math.min(byHeight, byWidth));
     el.style.fontSize = fontSize + "px";
   }
 
@@ -435,8 +435,12 @@
   });
 
   function resizeLabels() {
+    const cs = getComputedStyle(container);
+    const innerWidth = container.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+    const slotWidth = innerWidth / pillars.length;
+    const labelWidthBudget = slotWidth - 20 - 16; // minus Röhre + Abstände
     for (const { pillar, label } of pillars) {
-      sizeVerticalLabel(label, pillar.clientHeight - 20);
+      sizeVerticalLabel(label, pillar.clientHeight - 20, labelWidthBudget);
     }
   }
   resizeLabels();
