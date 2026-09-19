@@ -4,9 +4,6 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Kulturverein Halogen</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Pacifico&display=swap" rel="stylesheet">
 <style>
   * { box-sizing: border-box; }
   html, body {
@@ -35,22 +32,62 @@
     inset: 0;
     z-index: 3;
   }
+  /* Jedes Schild ist eine Metallplatte, alle optisch identisch (gleiches
+     Grau, gleicher Rahmen/Schatten), damit sie als eine einheitliche Ebene
+     im Raum wirken statt gestapelt/gelayert auszusehen. */
   .neon-sign {
     position: absolute;
     cursor: pointer;
     user-select: none;
+    background: linear-gradient(160deg, #333333, #1c1c1c);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 8px;
+    padding: 22px 30px;
+    box-shadow: 0 10px 22px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.06);
   }
-  .neon-text {
-    display: block;
-    font-family: "Pacifico", cursive;
-    font-size: clamp(26px, 4.5vw, 54px);
+  .neon-sign::before, .neon-sign::after {
+    content: "";
+    position: absolute;
+    top: 9px;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 35% 35%, #9a9a9a, #2a2a2a);
+  }
+  .neon-sign::before { left: 9px; }
+  .neon-sign::after { right: 9px; }
+  .sign-cables {
+    position: absolute;
+    inset: 0;
+    overflow: visible;
+    pointer-events: none;
+    z-index: 0;
+  }
+  .sign-cables path {
+    fill: none;
+    stroke: rgba(15,15,15,0.9);
+    stroke-width: 2;
+    stroke-linecap: round;
+  }
+  .neon-word {
+    position: relative;
+    z-index: 1;
+    display: inline-flex;
+    font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+    font-weight: 700;
+    font-size: clamp(20px, 3vw, 38px);
     line-height: 1;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
     white-space: nowrap;
-    color: rgba(255,255,255,0.22);
+    color: rgba(255,255,255,0.28);
     text-shadow: none;
     transition: color 0.35s ease, text-shadow 0.35s ease;
   }
-  .neon-sign:hover .neon-text {
+  .neon-letter {
+    color: inherit;
+  }
+  .neon-sign:hover .neon-word {
     color: #fff;
     text-shadow:
       0 0 6px var(--glow, #ffb703),
@@ -211,8 +248,8 @@
 
   // Kurze Flacker-Dramaturgie, pro Schild in seiner eigenen Farbe – wie die
   // Decken-Röhre im Dunkel-Intro, nur als Text statt als Röhrenform.
-  function playSignFlicker(textEl, color, onDone) {
-    const off = { color: "rgba(255,255,255,0.22)", shadow: "none" };
+  function playSignFlicker(wordEl, color, onDone) {
+    const off = { color: "rgba(255,255,255,0.28)", shadow: "none" };
     const glow = `0 0 6px ${color}, 0 0 14px ${color}, 0 0 28px ${color}, 0 0 50px ${color}`;
     const on = { color: "#fff", shadow: glow };
     const steps = [
@@ -224,29 +261,71 @@
     for (const [delay, state] of steps) {
       t += delay;
       setTimeout(() => {
-        textEl.style.color = state.color;
-        textEl.style.textShadow = state.shadow;
+        wordEl.style.color = state.color;
+        wordEl.style.textShadow = state.shadow;
       }, t);
     }
     setTimeout(onDone, t + 150);
   }
 
-  const signs = panelDefs.map((def) => {
-    const sign = document.createElement("div");
-    sign.className = "neon-sign";
-    sign.style.setProperty("--glow", def.color);
+  // Zeichnet je eine leicht durchhängende Kabelverbindung zwischen
+  // benachbarten Buchstaben, wie bei einem klassischen, verdrahteten
+  // Leuchtschild.
+  function drawCables(sign) {
+    const plateRect = sign.el.getBoundingClientRect();
+    if (!plateRect.width || !plateRect.height) return;
+    sign.svg.setAttribute("width", plateRect.width);
+    sign.svg.setAttribute("height", plateRect.height);
+    sign.svg.setAttribute("viewBox", `0 0 ${plateRect.width} ${plateRect.height}`);
 
-    const text = document.createElement("span");
-    text.className = "neon-text";
-    text.textContent = def.label;
-    sign.appendChild(text);
-    container.appendChild(sign);
+    // Buchstaben-Boxen berühren sich innerhalb des Flex-Containers (kein
+    // Zwischenraum zwischen den Kästen selbst) – von Kante zu Kante gäbe es
+    // also keine sichtbare Spannweite. Von Mitte zu Mitte ergibt die
+    // natürliche Kabellänge entlang des Buchstabenabstands.
+    let d = "";
+    for (let i = 0; i < sign.letters.length - 1; i++) {
+      const a = sign.letters[i].getBoundingClientRect();
+      const b = sign.letters[i + 1].getBoundingClientRect();
+      const x1 = a.left - plateRect.left + a.width / 2;
+      const y1 = a.top - plateRect.top + a.height * 0.28;
+      const x2 = b.left - plateRect.left + b.width / 2;
+      const y2 = b.top - plateRect.top + b.height * 0.28;
+      const midX = (x1 + x2) / 2;
+      const midY = (y1 + y2) / 2 + 8; // Durchhang
+      d += `M${x1.toFixed(1)},${y1.toFixed(1)} Q${midX.toFixed(1)},${midY.toFixed(1)} ${x2.toFixed(1)},${y2.toFixed(1)} `;
+    }
+    sign.svg.innerHTML = `<path d="${d}"></path>`;
+  }
+
+  const signs = panelDefs.map((def) => {
+    const el = document.createElement("div");
+    el.className = "neon-sign";
+    el.style.setProperty("--glow", def.color);
+
+    const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    svg.setAttribute("class", "sign-cables");
+    el.appendChild(svg);
+
+    const word = document.createElement("span");
+    word.className = "neon-word";
+    const letters = [];
+    for (const ch of def.label) {
+      const letter = document.createElement("span");
+      letter.className = "neon-letter";
+      letter.textContent = ch === " " ? " " : ch;
+      word.appendChild(letter);
+      letters.push(letter);
+    }
+    el.appendChild(word);
+    container.appendChild(el);
+
+    const sign = { el, svg, word, letters, def };
 
     let started = false;
-    sign.addEventListener("click", () => {
+    el.addEventListener("click", () => {
       if (started || def.link === "#") return;
       started = true;
-      playSignFlicker(text, def.color, () => zoomIntoSign(sign, def.color, def.link));
+      playSignFlicker(word, def.color, () => zoomIntoSign(el, def.color, def.link));
     });
 
     return sign;
@@ -255,6 +334,8 @@
   // Verteilt die Schilder zufällig auf dem Screen, ohne dass sie sich
   // überlappen (einfache Retry-Platzierung statt echter Kollisionsphysik,
   // da die Schilder – anders als früher – nicht mehr in Bewegung sind).
+  // Alle Platten sind optisch identisch, damit der Eindruck einer
+  // einzigen, ebenen Fläche entsteht statt gestapelter Ebenen.
   function placeSignsRandomly() {
     const w = window.innerWidth;
     const h = window.innerHeight;
@@ -264,8 +345,8 @@
     const placed = [];
 
     for (const sign of signs) {
-      const width = sign.offsetWidth || 160;
-      const height = sign.offsetHeight || 40;
+      const width = sign.el.offsetWidth || 160;
+      const height = sign.el.offsetHeight || 60;
       const maxX = Math.max(sideMargin, w - width - sideMargin);
       const maxY = Math.max(topMargin, h - height - bottomMargin);
       let x, y, attempts = 0;
@@ -280,10 +361,12 @@
           y < p.y + p.height + 24 && y + height + 24 > p.y
         )
       );
-      sign.style.left = x + "px";
-      sign.style.top = y + "px";
+      sign.el.style.left = x + "px";
+      sign.el.style.top = y + "px";
       placed.push({ x, y, width, height });
     }
+
+    for (const sign of signs) drawCables(sign);
   }
 
   placeSignsRandomly();
