@@ -4,10 +4,10 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Kulturverein Halogen</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Pacifico&display=swap" rel="stylesheet">
 <style>
-  :root {
-    --panel-fg: #f4f1ea;
-  }
   * { box-sizing: border-box; }
   html, body {
     margin: 0;
@@ -29,129 +29,34 @@
     inset: 0;
     background: linear-gradient(180deg, rgba(0,0,0,0.35), rgba(0,0,0,0.55));
   }
-  .wordmark-vertical {
-    position: fixed;
-    top: 0;
-    bottom: 0;
-    padding: 28px 0;
-    display: flex;
-    flex-direction: column;
-    justify-content: space-between;
-    align-items: center;
-    color: var(--panel-fg);
-    letter-spacing: 0.02em;
-    text-transform: uppercase;
-    font-weight: 300;
-    z-index: 5;
-    mix-blend-mode: difference;
-    pointer-events: none;
-  }
-  .wordmark-vertical span {
-    display: block;
-    line-height: 1;
-  }
-  #wordmark-left { left: 18px; }
-  #wordmark-right { right: 18px; }
+
   #pillar-container {
     position: fixed;
-    top: 140px;
-    left: 0;
-    right: 0;
-    bottom: 60px;
-    display: flex;
-    align-items: stretch;
-    justify-content: space-evenly;
-    padding: 0 80px;
+    inset: 0;
     z-index: 3;
   }
-  .tube-pillar {
-    position: relative;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 26px;
-    min-width: 90px;
+  .neon-sign {
+    position: absolute;
     cursor: pointer;
     user-select: none;
   }
-  .pillar-bg {
-    position: absolute;
-    inset: -50px -70px;
-    background-size: cover;
-    background-position: center;
-    opacity: 0.32;
-    filter: blur(0.5px) brightness(0.8);
-    -webkit-mask-image: radial-gradient(ellipse at center, black 32%, transparent 70%);
-    mask-image: radial-gradient(ellipse at center, black 32%, transparent 70%);
-    z-index: 0;
-    pointer-events: none;
-  }
-  .tube-column-v {
-    position: relative;
-    width: 20px;
-    height: 100%;
-    z-index: 1;
-  }
-  .tube-glow-v {
-    position: absolute;
-    inset: -30px -70px;
-    opacity: 0;
-    filter: blur(3px);
-    pointer-events: none;
-    transition: opacity 0.05s linear;
-  }
-  .tube-light-v {
-    position: absolute;
-    inset: 0;
-    border-radius: 999px;
-    opacity: 0.65;
-    transition: opacity 0.05s linear;
-  }
-  .tube-light-v::before, .tube-light-v::after {
-    content: "";
-    position: absolute;
-    left: 50%;
-    transform: translateX(-50%);
-    width: 34px;
-    height: 11px;
-    background: #333;
-    border-radius: 3px;
-    z-index: 2;
-  }
-  .tube-light-v::before { top: -13px; }
-  .tube-light-v::after { bottom: -13px; }
-  .pillar-label-v {
-    position: relative;
-    z-index: 1;
-    height: 100%;
-    display: flex;
-    flex-direction: column;
-    justify-content: space-between;
-    align-items: center;
-    color: #ddd;
-    text-transform: uppercase;
-    letter-spacing: 0.02em;
-    font-weight: 300;
-    pointer-events: none;
-  }
-  .pillar-label-v span {
+  .neon-text {
     display: block;
+    font-family: "Pacifico", cursive;
+    font-size: clamp(26px, 4.5vw, 54px);
     line-height: 1;
+    white-space: nowrap;
+    color: rgba(255,255,255,0.22);
+    text-shadow: none;
+    transition: color 0.35s ease, text-shadow 0.35s ease;
   }
-  @media (max-width: 700px) {
-    /* Bleiben nebeneinander wie am Desktop, nur enger gepackt – die
-       Säulen-Breite pro Panel wird zusätzlich in JS gedeckelt, damit
-       die Buchstaben der Labels nicht in die Nachbarspalte laufen. */
-    #pillar-container {
-      gap: 6px;
-      padding: 0 56px 20px;
-      top: 100px;
-      bottom: 0;
-    }
-    .tube-pillar {
-      min-width: 0;
-      gap: 6px;
-    }
+  .neon-sign:hover .neon-text {
+    color: #fff;
+    text-shadow:
+      0 0 6px var(--glow, #ffb703),
+      0 0 14px var(--glow, #ffb703),
+      0 0 28px var(--glow, #ffb703),
+      0 0 50px var(--glow, #ffb703);
   }
 
   #tube-fixture {
@@ -240,8 +145,6 @@
 </head>
 <body>
   <div id="hero"></div>
-  <div id="wordmark-left" class="wordmark-vertical"></div>
-  <div id="wordmark-right" class="wordmark-vertical"></div>
   <div id="pillar-container"></div>
 
   <div id="tube-fixture">
@@ -255,43 +158,6 @@
       <span class="line2">Klicken, um Licht zu machen.</span>
     </div>
   </div>
-
-<script>
-(function () {
-  // Vertikale Wortmarke: Buchstaben von oben nach unten, links "Halogen",
-  // rechts "Kulturverein". Beide Wörter füllen exakt die Viewport-Höhe,
-  // die Schriftgröße pro Buchstabe ergibt sich automatisch aus der
-  // Buchstabenanzahl – "Kulturverein" hat mehr Buchstaben, wird also
-  // pro Buchstabe kleiner als "Halogen".
-  function buildVerticalWord(container, word) {
-    container.innerHTML = "";
-    for (const ch of word) {
-      const span = document.createElement("span");
-      span.textContent = ch;
-      container.appendChild(span);
-    }
-  }
-  function sizeVerticalWord(container) {
-    const available = window.innerHeight - 56; // minus vertikales Padding
-    const count = container.children.length;
-    // Auf schmalen Screens wären die Buchstaben sonst breiter als der
-    // Platz neben den Panel-Säulen hergibt – zusätzlich an die Breite deckeln.
-    const maxByWidth = window.innerWidth * 0.085;
-    const fontSize = Math.max(8, Math.min((available / count) * 0.82, maxByWidth));
-    container.style.fontSize = fontSize + "px";
-  }
-  const wordLeft = document.getElementById("wordmark-left");
-  const wordRight = document.getElementById("wordmark-right");
-  buildVerticalWord(wordLeft, "HALOGEN");
-  buildVerticalWord(wordRight, "KULTURVEREIN");
-  function resizeWordmarks() {
-    sizeVerticalWord(wordLeft);
-    sizeVerticalWord(wordRight);
-  }
-  resizeWordmarks();
-  window.addEventListener("resize", resizeWordmarks);
-})();
-</script>
 
 <script>
 (async function () {
@@ -312,141 +178,116 @@
   const panelDefs = [1, 2, 3, 4].map(i => ({
     label: content[`panel_${i}_label`] || `Panel ${i}`,
     link: content[`panel_${i}_link`] || "#",
-    image: content[`panel_${i}_image_url`] || "",
     color: content[`panel_${i}_color`] || "#ffb703",
   }));
 
-  function hexToRgb(hex) {
-    const clean = (hex || "#ffb703").replace("#", "");
-    const full = clean.length === 3 ? clean.split("").map(c => c + c).join("") : clean;
-    const num = parseInt(full, 16) || 0xffb703;
-    return [(num >> 16) & 255, (num >> 8) & 255, num & 255];
-  }
-
-  function buildVerticalLabel(el, word) {
-    el.innerHTML = "";
-    for (const ch of word) {
-      const span = document.createElement("span");
-      span.textContent = ch;
-      el.appendChild(span);
-    }
-  }
-
-  function sizeVerticalLabel(el, availableHeightPx, availableWidthPx) {
-    const count = el.children.length || 1;
-    const byHeight = (availableHeightPx / count) * 0.58;
-    // Bei vielen schmalen Spalten nebeneinander (z. B. auf Mobile) darf ein
-    // einzelner Buchstabe nicht breiter werden als seine eigene Spalte,
-    // sonst läuft das Label in die Nachbarsäule hinein.
-    const byWidth = availableWidthPx ? availableWidthPx * 0.65 : Infinity;
-    const fontSize = Math.max(7, Math.min(byHeight, byWidth));
-    el.style.fontSize = fontSize + "px";
-  }
-
-  // Klont die angeklickte Säule und animiert sie auf volle Bildschirmgröße,
-  // bevor zur Unterseite navigiert wird ("reinzoomen").
-  function zoomIntoPanel(el, link) {
+  // Klont das angeklickte Leuchtschild und lässt es Richtung Kamera
+  // "aufblühen" (Skalierung + Farbfläche blendet über den Screen), bevor
+  // zur Unterseite navigiert wird.
+  function zoomIntoSign(el, color, link) {
     const rect = el.getBoundingClientRect();
     const clone = el.cloneNode(true);
-    clone.style.transform = "none";
     clone.style.position = "fixed";
     clone.style.left = rect.left + "px";
     clone.style.top = rect.top + "px";
-    clone.style.width = rect.width + "px";
-    clone.style.height = rect.height + "px";
     clone.style.margin = "0";
-    clone.style.zIndex = "50";
-    clone.style.transition = "left 0.5s ease, top 0.5s ease, width 0.5s ease, height 0.5s ease, border-radius 0.5s ease";
+    clone.style.zIndex = "60";
+    clone.style.transformOrigin = "center center";
+    clone.style.transition = "transform 0.5s ease";
     document.body.appendChild(clone);
-    clone.getBoundingClientRect(); // reflow erzwingen, damit die Transition greift
 
+    const flash = document.createElement("div");
+    flash.style.cssText = `position:fixed; inset:0; background:${color}; opacity:0; z-index:55; transition:opacity 0.5s ease; pointer-events:none;`;
+    document.body.appendChild(flash);
+
+    clone.getBoundingClientRect(); // reflow erzwingen, damit die Transition greift
     requestAnimationFrame(() => {
-      clone.style.left = "0px";
-      clone.style.top = "0px";
-      clone.style.width = "100vw";
-      clone.style.height = "100vh";
-      clone.style.borderRadius = "0px";
+      clone.style.transform = "scale(7)";
+      flash.style.opacity = "1";
     });
 
     setTimeout(() => { window.location.href = link; }, 520);
   }
 
-  // Kurze Variante der Flacker-Dramaturgie von der Decken-Röhre im
-  // Dunkel-Intro, pro Säule in ihrer eigenen Farbe. Deutlich kürzer als
-  // das einmalige Intro, weil das bei jedem einzelnen Klick abläuft.
-  function playPillarFlicker(tubeLight, tubeGlow, onDone) {
-    // Dips gehen bewusst dunkler als der helle Ruhezustand (0.4), damit
-    // das Flackern als klarer An/Aus-Kontrast wahrnehmbar bleibt.
+  // Kurze Flacker-Dramaturgie, pro Schild in seiner eigenen Farbe – wie die
+  // Decken-Röhre im Dunkel-Intro, nur als Text statt als Röhrenform.
+  function playSignFlicker(textEl, color, onDone) {
+    const off = { color: "rgba(255,255,255,0.22)", shadow: "none" };
+    const glow = `0 0 6px ${color}, 0 0 14px ${color}, 0 0 28px ${color}, 0 0 50px ${color}`;
+    const on = { color: "#fff", shadow: glow };
     const steps = [
-      [30, 1], [35, 0.05], [70, 0.05],
-      [20, 0.85], [20, 0.05], [15, 1], [10, 0.05], [15, 1], [10, 0.05],
-      [140, 1],
+      [30, on], [35, off], [70, off],
+      [20, on], [20, off], [15, on], [10, off], [15, on], [10, off],
+      [140, on],
     ];
     let t = 0;
-    for (const [delay, brightness] of steps) {
+    for (const [delay, state] of steps) {
       t += delay;
       setTimeout(() => {
-        tubeLight.style.opacity = brightness;
-        tubeGlow.style.opacity = brightness;
+        textEl.style.color = state.color;
+        textEl.style.textShadow = state.shadow;
       }, t);
     }
     setTimeout(onDone, t + 150);
   }
 
-  const pillars = panelDefs.map((def) => {
-    const pillar = document.createElement("div");
-    pillar.className = "tube-pillar";
+  const signs = panelDefs.map((def) => {
+    const sign = document.createElement("div");
+    sign.className = "neon-sign";
+    sign.style.setProperty("--glow", def.color);
 
-    if (def.image) {
-      const bg = document.createElement("div");
-      bg.className = "pillar-bg";
-      bg.style.backgroundImage = `url("${def.image}")`;
-      pillar.appendChild(bg);
-    }
-
-    const column = document.createElement("div");
-    column.className = "tube-column-v";
-    const glow = document.createElement("div");
-    glow.className = "tube-glow-v";
-    const light = document.createElement("div");
-    light.className = "tube-light-v";
-    column.appendChild(glow);
-    column.appendChild(light);
-
-    const label = document.createElement("div");
-    label.className = "pillar-label-v";
-    buildVerticalLabel(label, def.label.toUpperCase());
-
-    pillar.appendChild(column);
-    pillar.appendChild(label);
-    container.appendChild(pillar);
-
-    const [r, g, b] = hexToRgb(def.color);
-    light.style.background = `linear-gradient(180deg, #ffffff, rgb(${r},${g},${b}))`;
-    light.style.boxShadow = `0 0 18px 6px rgba(${r},${g},${b},1), 0 0 46px 14px rgba(${r},${g},${b},0.75)`;
-    glow.style.background = `radial-gradient(ellipse at center, rgba(${r},${g},${b},0.75), rgba(${r},${g},${b},0) 70%)`;
+    const text = document.createElement("span");
+    text.className = "neon-text";
+    text.textContent = def.label;
+    sign.appendChild(text);
+    container.appendChild(sign);
 
     let started = false;
-    pillar.addEventListener("click", () => {
+    sign.addEventListener("click", () => {
       if (started || def.link === "#") return;
       started = true;
-      playPillarFlicker(light, glow, () => zoomIntoPanel(pillar, def.link));
+      playSignFlicker(text, def.color, () => zoomIntoSign(sign, def.color, def.link));
     });
 
-    return { pillar, label };
+    return sign;
   });
 
-  function resizeLabels() {
-    const cs = getComputedStyle(container);
-    const innerWidth = container.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
-    const slotWidth = innerWidth / pillars.length;
-    const labelWidthBudget = slotWidth - 20 - 16; // minus Röhre + Abstände
-    for (const { pillar, label } of pillars) {
-      sizeVerticalLabel(label, pillar.clientHeight - 20, labelWidthBudget);
+  // Verteilt die Schilder zufällig auf dem Screen, ohne dass sie sich
+  // überlappen (einfache Retry-Platzierung statt echter Kollisionsphysik,
+  // da die Schilder – anders als früher – nicht mehr in Bewegung sind).
+  function placeSignsRandomly() {
+    const w = window.innerWidth;
+    const h = window.innerHeight;
+    const topMargin = 140;
+    const bottomMargin = 60;
+    const sideMargin = 40;
+    const placed = [];
+
+    for (const sign of signs) {
+      const width = sign.offsetWidth || 160;
+      const height = sign.offsetHeight || 40;
+      const maxX = Math.max(sideMargin, w - width - sideMargin);
+      const maxY = Math.max(topMargin, h - height - bottomMargin);
+      let x, y, attempts = 0;
+      do {
+        x = sideMargin + Math.random() * (maxX - sideMargin);
+        y = topMargin + Math.random() * (maxY - topMargin);
+        attempts++;
+      } while (
+        attempts < 40 &&
+        placed.some(p =>
+          x < p.x + p.width + 24 && x + width + 24 > p.x &&
+          y < p.y + p.height + 24 && y + height + 24 > p.y
+        )
+      );
+      sign.style.left = x + "px";
+      sign.style.top = y + "px";
+      placed.push({ x, y, width, height });
     }
   }
-  resizeLabels();
-  window.addEventListener("resize", resizeLabels);
+
+  placeSignsRandomly();
+  window.addEventListener("resize", placeSignsRandomly);
 })();
 </script>
 
