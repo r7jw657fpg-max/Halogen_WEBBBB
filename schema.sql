@@ -65,6 +65,7 @@ CREATE TABLE IF NOT EXISTS community_posts (
 -- Startwerte
 INSERT OR IGNORE INTO site_content (key, value) VALUES
   ('hero_image_url', ''),
+  ('hero_hotspots', '[]'),
   ('panel_1_label', 'Programm'),
   ('panel_1_link', '/programm/'),
   ('panel_2_label', 'Community'),

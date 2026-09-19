@@ -58,6 +58,19 @@
     <button id="hero-upload-btn">Bild hochladen & setzen</button>
     <span class="status" id="hero-status"></span>
     <img class="preview" id="hero-preview">
+
+    <h3 style="font-size:0.95rem; text-transform:uppercase; letter-spacing:0.05em; margin:24px 0 8px;">Klickbare Bereiche (Hotspots)</h3>
+    <p style="font-size:0.85rem; color:#999; margin-top:0;">
+      Auf dem Bild ziehen, um einen klickbaren Bereich aufzuziehen (z. B. über einem der gerahmten Bilder an der Wand), dann Link eintragen.
+    </p>
+    <div id="hotspot-editor" style="position:relative; display:inline-block; max-width:100%; margin-top:6px; cursor:crosshair; line-height:0;">
+      <img id="hotspot-image" style="max-width:100%; display:block; border-radius:6px; user-select:none;" draggable="false">
+      <div id="hotspot-draw-box" style="position:absolute; border:2px dashed #ffb703; background:rgba(255,183,3,0.15); display:none; pointer-events:none;"></div>
+      <div id="hotspot-marks"></div>
+    </div>
+    <div id="hotspot-list" style="margin-top:14px;"></div>
+    <button type="button" id="hotspot-save-btn">Hotspots speichern</button>
+    <span class="status" id="hotspot-status"></span>
   </section>
 
   <section>
@@ -599,8 +612,144 @@ document.getElementById("hero-upload-btn").addEventListener("click", async () =>
     await saveContent({ hero_image_url: url });
     status.textContent = "Gespeichert ✓";
     document.getElementById("hero-preview").src = url;
+    document.getElementById("hotspot-image").src = url;
   } catch (err) {
     status.textContent = "Fehler: " + (err.message || "Upload fehlgeschlagen");
+    console.error(err);
+  }
+  setTimeout(() => status.textContent = "", 3500);
+});
+
+// --- Hero-Bild-Hotspots: klickbare Bereiche über Motiven im Hero-Bild ---
+let hotspots = [];
+
+function renderHotspotMarks() {
+  const marks = document.getElementById("hotspot-marks");
+  const heroImg = document.getElementById("hotspot-image");
+  marks.innerHTML = hotspots.map((spot, i) => `
+    <div style="position:absolute; border:2px solid #ffb703; background:rgba(255,183,3,0.15); pointer-events:none;
+      left:${spot.x * heroImg.clientWidth}px; top:${spot.y * heroImg.clientHeight}px;
+      width:${spot.w * heroImg.clientWidth}px; height:${spot.h * heroImg.clientHeight}px;">
+      <span style="position:absolute; top:-20px; left:0; font-size:0.7rem; color:#ffb703; background:#111; padding:1px 5px; border-radius:3px; white-space:nowrap;">${i + 1}</span>
+    </div>
+  `).join("");
+}
+
+function renderHotspotList() {
+  const list = document.getElementById("hotspot-list");
+  if (!hotspots.length) {
+    list.innerHTML = "<p style='color:#999; font-size:0.85rem;'>Noch keine Hotspots – auf dem Bild oben ziehen, um einen aufzuziehen.</p>";
+    return;
+  }
+  list.innerHTML = hotspots.map((spot, i) => `
+    <div style="display:flex; gap:8px; align-items:center; margin-bottom:8px;">
+      <span style="color:#ffb703; font-size:0.85rem; width:16px;">${i + 1}</span>
+      <input type="text" class="hotspot-label" data-i="${i}" placeholder="Label (nur für dich)" value="${escapeHtml(spot.label || "")}" style="flex:1; margin:0;">
+      <input type="text" class="hotspot-link" data-i="${i}" placeholder="Link, z. B. /programm/" value="${escapeHtml(spot.link || "")}" style="flex:1; margin:0;">
+      <button type="button" class="hotspot-remove-btn" data-i="${i}" style="background:#a33; color:#fff; margin:0;">✕</button>
+    </div>
+  `).join("");
+
+  list.querySelectorAll(".hotspot-label").forEach((inp) => {
+    inp.addEventListener("input", () => { hotspots[+inp.dataset.i].label = inp.value; });
+  });
+  list.querySelectorAll(".hotspot-link").forEach((inp) => {
+    inp.addEventListener("input", () => { hotspots[+inp.dataset.i].link = inp.value; });
+  });
+  list.querySelectorAll(".hotspot-remove-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      hotspots.splice(+btn.dataset.i, 1);
+      renderHotspotMarks();
+      renderHotspotList();
+    });
+  });
+}
+
+async function loadHotspots() {
+  const content = await fetch("/api/content").then((r) => r.json());
+  try { hotspots = JSON.parse(content.hero_hotspots || "[]"); } catch (e) { hotspots = []; }
+
+  const heroImg = document.getElementById("hotspot-image");
+  if (content.hero_image_url) heroImg.src = content.hero_image_url;
+
+  const rerender = () => { renderHotspotMarks(); renderHotspotList(); };
+  if (heroImg.complete && heroImg.naturalWidth) rerender();
+  else heroImg.addEventListener("load", rerender, { once: true });
+}
+
+// Rechteck per Ziehen auf dem Bild aufziehen -> neuer Hotspot (als Anteil
+// der Bildgröße gespeichert, damit die Position unabhängig von der
+// Bildschirmgröße stimmt).
+(function setupHotspotDrawing() {
+  const editor = document.getElementById("hotspot-editor");
+  const heroImg = document.getElementById("hotspot-image");
+  const drawBox = document.getElementById("hotspot-draw-box");
+  let startX, startY, dragging = false;
+
+  function pointerPos(e) {
+    const editorRect = editor.getBoundingClientRect();
+    return { x: e.clientX - editorRect.left, y: e.clientY - editorRect.top };
+  }
+
+  editor.addEventListener("mousedown", (e) => {
+    if (e.target !== heroImg) return;
+    const p = pointerPos(e);
+    startX = p.x;
+    startY = p.y;
+    dragging = true;
+    drawBox.style.left = startX + "px";
+    drawBox.style.top = startY + "px";
+    drawBox.style.width = "0px";
+    drawBox.style.height = "0px";
+    drawBox.style.display = "block";
+  });
+
+  window.addEventListener("mousemove", (e) => {
+    if (!dragging) return;
+    const p = pointerPos(e);
+    const x = Math.min(startX, p.x);
+    const y = Math.min(startY, p.y);
+    drawBox.style.left = x + "px";
+    drawBox.style.top = y + "px";
+    drawBox.style.width = Math.abs(p.x - startX) + "px";
+    drawBox.style.height = Math.abs(p.y - startY) + "px";
+  });
+
+  window.addEventListener("mouseup", (e) => {
+    if (!dragging) return;
+    dragging = false;
+    drawBox.style.display = "none";
+    const p = pointerPos(e);
+    const x = Math.min(startX, p.x);
+    const y = Math.min(startY, p.y);
+    const w = Math.abs(p.x - startX);
+    const h = Math.abs(p.y - startY);
+    if (w < 8 || h < 8) return; // zu klein - vermutlich nur ein Klick
+
+    const imgW = heroImg.clientWidth;
+    const imgH = heroImg.clientHeight;
+    if (!imgW || !imgH) return;
+
+    hotspots.push({
+      x: Math.max(0, x / imgW),
+      y: Math.max(0, y / imgH),
+      w: Math.min(1, w / imgW),
+      h: Math.min(1, h / imgH),
+      link: "",
+      label: "",
+    });
+    renderHotspotMarks();
+    renderHotspotList();
+  });
+})();
+
+document.getElementById("hotspot-save-btn").addEventListener("click", async () => {
+  const status = document.getElementById("hotspot-status");
+  try {
+    await saveContent({ hero_hotspots: JSON.stringify(hotspots) });
+    status.textContent = "Gespeichert ✓";
+  } catch (err) {
+    status.textContent = "Fehler: " + (err.message || "Speichern fehlgeschlagen");
     console.error(err);
   }
   setTimeout(() => status.textContent = "", 3500);
@@ -660,6 +809,7 @@ document.addEventListener("click", (e) => {
 
 (async function init() {
   await loadContent();
+  await loadHotspots();
   await loadPanelsAndPages();
   await loadOrphanPages();
 

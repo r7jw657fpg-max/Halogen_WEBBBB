@@ -16,9 +16,11 @@
   #hero {
     position: fixed;
     inset: 0;
-    background-size: cover;
+    background-size: contain;
+    background-repeat: no-repeat;
     background-position: center;
     background-color: #111;
+    z-index: 0;
   }
   #hero::after {
     content: "";
@@ -26,11 +28,30 @@
     inset: 0;
     background: linear-gradient(180deg, rgba(0,0,0,0.35), rgba(0,0,0,0.55));
   }
+  #hero-hotspots {
+    position: fixed;
+    inset: 0;
+    z-index: 1;
+  }
+  .hero-hotspot {
+    position: absolute;
+    cursor: pointer;
+    border-radius: 4px;
+    transition: box-shadow 0.25s ease, background 0.25s ease;
+  }
+  .hero-hotspot:hover {
+    box-shadow: 0 0 0 2px rgba(255,255,255,0.55), 0 0 24px rgba(255,255,255,0.25);
+    background: rgba(255,255,255,0.06);
+  }
 
   #pillar-container {
     position: fixed;
     inset: 0;
     z-index: 3;
+    /* Deckt den ganzen Screen ab, ist aber selbst leer (nur die Schilder
+       drin sind Inhalt) – ohne das hier würde es überall Klicks abfangen,
+       auch dort wo kein Schild ist, und die Hero-Hotspots darunter blockieren. */
+    pointer-events: none;
   }
   /* Jedes Schild ist eine Metallplatte, alle optisch identisch (gleiches
      Grau, gleicher Rahmen/Schatten), damit sie als eine einheitliche Ebene
@@ -39,6 +60,7 @@
     position: absolute;
     cursor: pointer;
     user-select: none;
+    pointer-events: auto;
     background: linear-gradient(160deg, #333333, #1c1c1c);
     border: 1px solid rgba(255,255,255,0.08);
     border-radius: 8px;
@@ -182,6 +204,7 @@
 </head>
 <body>
   <div id="hero"></div>
+  <div id="hero-hotspots"></div>
   <div id="pillar-container"></div>
 
   <div id="tube-fixture">
@@ -211,6 +234,63 @@
   if (content.hero_image_url) {
     hero.style.backgroundImage = `url("${content.hero_image_url}")`;
   }
+
+  // Klickbare Bereiche über den Motiven im Hero-Bild (z. B. die gerahmten
+  // Bilder an der Wand), im Admin-Bereich als Rechtecke auf dem Bild
+  // aufgezogen und als Sekunden-relativ-zur-Bildgröße-Anteile gespeichert.
+  // Da das Bild per background-size:contain immer komplett sichtbar ist
+  // (ggf. mit Letterbox-Rand), muss die tatsächliche Bildfläche im
+  // Viewport berechnet werden, um die Anteile richtig zu platzieren.
+  (async function setupHeroHotspots() {
+    let hotspots = [];
+    try { hotspots = JSON.parse(content.hero_hotspots || "[]"); } catch (e) { hotspots = []; }
+    if (!content.hero_image_url || !hotspots.length) return;
+
+    const naturalSize = await new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => resolve({ w: img.naturalWidth, h: img.naturalHeight });
+      img.onerror = () => resolve(null);
+      img.src = content.hero_image_url;
+    });
+    if (!naturalSize) return;
+
+    const hotspotContainer = document.getElementById("hero-hotspots");
+
+    function renderHotspots() {
+      const vw = window.innerWidth;
+      const vh = window.innerHeight;
+      const containerRatio = vw / vh;
+      const imgRatio = naturalSize.w / naturalSize.h;
+      let renderW, renderH;
+      if (imgRatio > containerRatio) {
+        renderW = vw;
+        renderH = vw / imgRatio;
+      } else {
+        renderH = vh;
+        renderW = vh * imgRatio;
+      }
+      const offsetX = (vw - renderW) / 2;
+      const offsetY = (vh - renderH) / 2;
+
+      hotspotContainer.innerHTML = "";
+      for (const spot of hotspots) {
+        const el = document.createElement("div");
+        el.className = "hero-hotspot";
+        el.style.left = (offsetX + spot.x * renderW) + "px";
+        el.style.top = (offsetY + spot.y * renderH) + "px";
+        el.style.width = (spot.w * renderW) + "px";
+        el.style.height = (spot.h * renderH) + "px";
+        if (spot.label) el.title = spot.label;
+        el.addEventListener("click", () => {
+          if (spot.link) window.location.href = spot.link;
+        });
+        hotspotContainer.appendChild(el);
+      }
+    }
+
+    renderHotspots();
+    window.addEventListener("resize", renderHotspots);
+  })();
 
   const panelDefs = [1, 2, 3, 4].map(i => ({
     label: content[`panel_${i}_label`] || `Panel ${i}`,
