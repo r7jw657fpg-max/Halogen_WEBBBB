@@ -69,7 +69,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 14px;
+    gap: 26px;
     min-width: 90px;
     cursor: pointer;
     user-select: none;
@@ -104,7 +104,7 @@
     position: absolute;
     inset: 0;
     border-radius: 999px;
-    opacity: 0.4;
+    opacity: 0.65;
     transition: opacity 0.05s linear;
   }
   .tube-light-v::before, .tube-light-v::after {
@@ -334,11 +334,11 @@
 
   function sizeVerticalLabel(el, availableHeightPx, availableWidthPx) {
     const count = el.children.length || 1;
-    const byHeight = (availableHeightPx / count) * 0.78;
+    const byHeight = (availableHeightPx / count) * 0.58;
     // Bei vielen schmalen Spalten nebeneinander (z. B. auf Mobile) darf ein
     // einzelner Buchstabe nicht breiter werden als seine eigene Spalte,
     // sonst läuft das Label in die Nachbarsäule hinein.
-    const byWidth = availableWidthPx ? availableWidthPx * 0.85 : Infinity;
+    const byWidth = availableWidthPx ? availableWidthPx * 0.65 : Infinity;
     const fontSize = Math.max(7, Math.min(byHeight, byWidth));
     el.style.fontSize = fontSize + "px";
   }
